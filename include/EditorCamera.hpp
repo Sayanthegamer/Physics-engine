@@ -74,6 +74,42 @@ public:
         return glm::perspective(glm::radians(45.0f), aspect_ratio, 0.1f, 1000.0f);
     }
 
+    glm::vec3 GetMouseWorldPosition(GLFWwindow* window, int width, int height) const {
+        if (width == 0 || height == 0) return glm::vec3(0.0f);
+
+        double mouseX, mouseY;
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+
+        // Convert to normalized device coordinates (NDC)
+        float x = (2.0f * (float)mouseX) / (float)width - 1.0f;
+        float y = 1.0f - (2.0f * (float)mouseY) / (float)height;
+
+        glm::mat4 view = GetViewMatrix();
+        glm::mat4 proj = GetProjectionMatrix((float)width / (float)height);
+        
+        // Unproject points on near and far plane
+        glm::vec4 ray_clip_near(x, y, -1.0f, 1.0f);
+        glm::vec4 ray_clip_far(x, y, 1.0f, 1.0f);
+        
+        glm::mat4 invVP = glm::inverse(proj * view);
+        
+        glm::vec4 ray_world_near = invVP * ray_clip_near;
+        ray_world_near /= ray_world_near.w;
+        
+        glm::vec4 ray_world_far = invVP * ray_clip_far;
+        ray_world_far /= ray_world_far.w;
+        
+        glm::vec3 ray_dir = glm::normalize(glm::vec3(ray_world_far - ray_world_near));
+        glm::vec3 ray_origin = glm::vec3(ray_world_near);
+        
+        // Intersect with Z=0 plane
+        // ray_origin.z + t * ray_dir.z = 0
+        if (std::abs(ray_dir.z) < 1e-6f) return glm::vec3(0.0f);
+        
+        float t = -ray_origin.z / ray_dir.z;
+        return ray_origin + ray_dir * t;
+    }
+
 private:
     void UpdateVectors() {
         glm::vec3 front;

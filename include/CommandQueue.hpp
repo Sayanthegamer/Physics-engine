@@ -56,6 +56,13 @@ public:
                 }
                 else if constexpr (std::is_same_v<T, RemoveBodyCommand>) {
                     state.RemoveBody(arg.handle);
+                    // Constraint cleanup
+                    constraints.gears.erase(
+                        std::remove_if(constraints.gears.begin(), constraints.gears.end(),
+                            [&](const GearConstraint& gc) {
+                                return gc.body_a.index == arg.handle.index || gc.body_b.index == arg.handle.index;
+                            }),
+                        constraints.gears.end());
                 }
                 else if constexpr (std::is_same_v<T, AddGearConstraintCommand>) {
                     constraints.gears.push_back(arg.constraint);

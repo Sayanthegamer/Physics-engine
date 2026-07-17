@@ -59,21 +59,53 @@ uniform mat4 view;
 uniform mat4 projection;
 
 out vec4 vertexColor;
+out vec2 TexCoords;
+out float GearRadius;
 
 void main()
 {
     gl_Position = projection * view * aInstanceMatrix * vec4(aPos, 1.0);
     vertexColor = aInstanceColor;
+    TexCoords = aPos.xy;
+    GearRadius = length(aInstanceMatrix[0].xyz);
 }
 )";
 
 const char* fragmentShaderSource = R"(
 #version 330 core
 out vec4 FragColor;
+
 in vec4 vertexColor;
+in vec2 TexCoords;
+in float GearRadius;
 
 void main()
 {
+    float r = length(TexCoords);
+    if (r > 1.5) discard;
+    
+    float theta = atan(TexCoords.y, TexCoords.x);
+    
+    // Constant tooth size mathematically driven
+    float teeth_density = 4.0; 
+    float teeth_count = max(4.0, round(GearRadius * teeth_density));
+    
+    float tooth_depth = 0.2 / GearRadius; 
+    
+    // Square wave
+    float wave = sign(sin(teeth_count * theta));
+    float boundary = 1.0 + tooth_depth * wave;
+    
+    if (r > boundary) {
+        discard;
+    }
+    
+    // Axle hole
+    float axle_radius = 0.2 / GearRadius;
+    if (r < axle_radius) {
+        discard;
+    }
+    
     FragColor = vertexColor;
 }
 )";
@@ -122,7 +154,7 @@ public:
         if (glDeleteProgram) glDeleteProgram(line_shader_program_);
     }
 
-    void Draw(const EngineState& state, const ConstraintArrays& constraints, const EditorCamera& camera, int width, int height) {
+    void Draw(const EngineState& state, const ConstraintArrays& constraints, const EditorCamera& camera, int width, int height, int highlighted_gear = -1) {
         if (width == 0 || height == 0 || !glDrawArraysInstanced) return;
         
         instance_matrices_.clear();
@@ -139,7 +171,11 @@ public:
             model = glm::scale(model, glm::vec3(bodies.radii[i]));
             
             instance_matrices_.push_back(model);
-            instance_colors_.push_back(glm::vec4(0.26f, 0.70f, 0.98f, 1.0f)); // Blue theme
+            if ((int)i == highlighted_gear) {
+                instance_colors_.push_back(glm::vec4(1.0f, 1.0f, 0.2f, 1.0f)); // Yellow highlight
+            } else {
+                instance_colors_.push_back(glm::vec4(0.26f, 0.70f, 0.98f, 1.0f)); // Blue theme
+            }
         }
 
         if (instance_matrices_.empty()) return;
@@ -160,7 +196,7 @@ public:
         glBindBuffer(GL_ARRAY_BUFFER, instance_color_vbo_);
         glBufferData(GL_ARRAY_BUFFER, instance_colors_.size() * sizeof(glm::vec4), instance_colors_.data(), GL_DYNAMIC_DRAW);
 
-        glDrawArraysInstanced(GL_LINE_LOOP, 0, circle_vertex_count_, (GLsizei)instance_matrices_.size());
+        glDrawArraysInstanced(GL_TRIANGLES, 0, circle_vertex_count_, (GLsizei)instance_matrices_.size());
         
         glBindVertexArray(0);
         glUseProgram(0);
@@ -187,6 +223,36 @@ public:
                 glUseProgram(0);
             }
         }
+    }
+
+    void DrawPreviewGear(glm::vec3 position, float radius, bool is_snapped, const EditorCamera& camera, int width, int height) {
+        if (width == 0 || height == 0 || !glUseProgram) return;
+
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+        model = glm::scale(model, glm::vec3(radius));
+
+        glm::mat4 view = camera.GetViewMatrix();
+        glm::mat4 projection = camera.GetProjectionMatrix((float)width / (float)height);
+
+        glUseProgram(shader_program_);
+        glUniformMatrix4fv(glGetUniformLocation(shader_program_, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(shader_program_, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+        glBindVertexArray(circle_vao_);
+
+        // Just use instance data buffer for 1 instance
+        glm::vec4 color = is_snapped ? glm::vec4(0.2f, 1.0f, 0.2f, 0.8f) : glm::vec4(1.0f, 1.0f, 1.0f, 0.5f);
+        
+        glBindBuffer(GL_ARRAY_BUFFER, instance_matrix_vbo_);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4), glm::value_ptr(model), GL_DYNAMIC_DRAW);
+
+        glBindBuffer(GL_ARRAY_BUFFER, instance_color_vbo_);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4), glm::value_ptr(color), GL_DYNAMIC_DRAW);
+
+        glDrawArraysInstanced(GL_TRIANGLES, 0, circle_vertex_count_, 1);
+        
+        glBindVertexArray(0);
+        glUseProgram(0);
     }
 
 private:
@@ -238,16 +304,15 @@ private:
     void SetupCircleGeometry() {
         if (!glGenVertexArrays) return;
 
-        std::vector<glm::vec3> circle_vertices;
-        const int segments = 32;
-        for (int i = 0; i < segments; ++i) {
-            float theta = 2.0f * 3.1415926f * float(i) / float(segments);
-            circle_vertices.push_back(glm::vec3(cosf(theta), sinf(theta), 0.0f));
-        }
-        // Add a center point so the GL_LINE_LOOP draws a "spoke" from the edge to the center, making rotation visible!
-        circle_vertices.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
-        
-        circle_vertex_count_ = segments + 1;
+        std::vector<glm::vec3> quad_vertices = {
+            {-1.5f, -1.5f, 0.0f},
+            { 1.5f, -1.5f, 0.0f},
+            {-1.5f,  1.5f, 0.0f},
+            { 1.5f,  1.5f, 0.0f},
+            {-1.5f,  1.5f, 0.0f},
+            { 1.5f, -1.5f, 0.0f}
+        };
+        circle_vertex_count_ = 6;
 
         glGenVertexArrays(1, &circle_vao_);
         glGenBuffers(1, &circle_vbo_);
@@ -257,7 +322,7 @@ private:
         glBindVertexArray(circle_vao_);
 
         glBindBuffer(GL_ARRAY_BUFFER, circle_vbo_);
-        glBufferData(GL_ARRAY_BUFFER, circle_vertices.size() * sizeof(glm::vec3), circle_vertices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, quad_vertices.size() * sizeof(glm::vec3), quad_vertices.data(), GL_STATIC_DRAW);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
 

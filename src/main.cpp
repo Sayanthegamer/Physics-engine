@@ -67,8 +67,11 @@ int main(int argc, char** argv) {
     float accumulator = 0.0f;
     
     // UI State
-    std::vector<uint32_t> selected_gears;
+    int grabbed_gear = -1;
+    int next_teeth = 8;
+    const float kTeethDensity = 4.0f;
     float motor_speed = 5.0f;
+    uint32_t selected_motor_gear = 0;
     
     auto previous_time = std::chrono::high_resolution_clock::now();
 
@@ -110,8 +113,119 @@ int main(int argc, char** argv) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+        
+        int display_w, display_h;
+        glfwGetFramebufferSize(window, &display_w, &display_h);
 
         // UI Panel
+        // --- 3D Interaction Logic ---
+        glm::vec3 mouse_world = camera.GetMouseWorldPosition(window, display_w, display_h);
+        
+        if (!io.WantCaptureMouse && io.MouseWheel != 0.0f) {
+            if (io.MouseWheel > 0) next_teeth++;
+            if (io.MouseWheel < 0) next_teeth--;
+            if (next_teeth < 4) next_teeth = 4;
+            if (next_teeth > 64) next_teeth = 64;
+        }
+        
+        float next_radius = (float)next_teeth / kTeethDensity;
+
+        int nearest_gear = -1;
+        float min_dist = 9999.0f;
+        int hovered_gear = -1;
+        const auto& bodies = engine_state.GetBodies();
+        
+        for (uint32_t i = 1; i < engine_state.GetCapacity(); ++i) {
+            if (engine_state.IsIndexActive(i) && (int)i != grabbed_gear) {
+                float dist = glm::length(bodies.positions[i] - mouse_world);
+                if (dist < min_dist) {
+                    min_dist = dist;
+                    nearest_gear = i;
+                }
+                if (dist <= bodies.radii[i]) {
+                    hovered_gear = i;
+                }
+            }
+        }
+        
+        bool is_snapped = false;
+        glm::vec3 placement_pos = mouse_world;
+        int snap_target = -1;
+        float current_radius = (grabbed_gear != -1) ? bodies.radii[grabbed_gear] : next_radius;
+        
+        // Only snap if we aren't directly hovering over a gear's body
+        if (nearest_gear != -1 && hovered_gear == -1) {
+            float target_dist = bodies.radii[nearest_gear] + current_radius;
+            if (min_dist < target_dist + 2.0f) { // 2.0f snap tolerance
+                glm::vec3 dir = glm::normalize(mouse_world - bodies.positions[nearest_gear]);
+                placement_pos = bodies.positions[nearest_gear] + dir * target_dist;
+                is_snapped = true;
+                snap_target = nearest_gear;
+            }
+        }
+        
+        if (grabbed_gear != -1) {
+            engine_state.GetBodies().positions[grabbed_gear] = placement_pos;
+        }
+
+        if (!io.WantCaptureMouse) {
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                if (hovered_gear != -1) {
+                    grabbed_gear = hovered_gear;
+                    selected_motor_gear = hovered_gear;
+                } else {
+                    // Spawn new gear
+                    GearEngine::EntityHandle new_handle = engine_state.AllocateBody();
+                    if (new_handle.IsValid()) {
+                        uint32_t i = new_handle.index;
+                        engine_state.GetBodies().positions[i] = placement_pos;
+                        engine_state.GetBodies().radii[i] = next_radius;
+                        engine_state.GetBodies().linear_velocities[i] = glm::vec3(0.0f);
+                        engine_state.GetBodies().angular_velocities[i] = glm::vec3(0.0f);
+                        engine_state.GetBodies().rotations[i] = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+                        
+                        float mass = 3.14159f * next_radius * next_radius;
+                        engine_state.GetBodies().inverse_masses[i] = 1.0f / mass;
+                        float I_zz = 0.5f * mass * next_radius * next_radius;
+                        engine_state.GetBodies().inverse_inertias[i] = glm::mat3(0.0f);
+                        engine_state.GetBodies().inverse_inertias[i][2][2] = 1.0f / I_zz;
+                        
+                        if (is_snapped) {
+                            GearEngine::GearConstraint gc;
+                            gc.body_a = new_handle;
+                            gc.body_b = {(uint32_t)snap_target, engine_state.GetGeneration(snap_target)};
+                            // FIX: Ratio must be Target_Radius / New_Radius 
+                            // so that w_A + ratio*w_B = 0 enforces equal tangential velocity
+                            gc.ratio = engine_state.GetBodies().radii[snap_target] / next_radius;
+                            constraint_arrays.gears.push_back(gc);
+                        }
+                    }
+                }
+            }
+            else if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                if (grabbed_gear != -1 && is_snapped) {
+                    GearEngine::GearConstraint gc;
+                    gc.body_a = {(uint32_t)grabbed_gear, engine_state.GetGeneration(grabbed_gear)};
+                    gc.body_b = {(uint32_t)snap_target, engine_state.GetGeneration(snap_target)};
+                    // FIX: Ratio is Target_Radius / Grabbed_Radius
+                    gc.ratio = engine_state.GetBodies().radii[snap_target] / engine_state.GetBodies().radii[grabbed_gear];
+                    constraint_arrays.gears.push_back(gc);
+                }
+                grabbed_gear = -1;
+            }
+            else if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
+                int target_to_delete = hovered_gear != -1 ? hovered_gear : (selected_motor_gear != 0 ? selected_motor_gear : -1);
+                if (target_to_delete != -1) {
+                    GearEngine::RemoveBodyCommand cmd;
+                    cmd.handle = {(uint32_t)target_to_delete, engine_state.GetGeneration(target_to_delete)};
+                    command_queue.PushCommand(cmd);
+                    if (selected_motor_gear == (uint32_t)target_to_delete) selected_motor_gear = 0;
+                    if (grabbed_gear == target_to_delete) grabbed_gear = -1;
+                }
+            }
+        }
+        // ------------------------------
+
         ImGui::Begin("Engine Statistics");
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         
@@ -122,15 +236,12 @@ int main(int argc, char** argv) {
         ImGui::Text("Active Bodies: %d (Max %d)", active_count, GearEngine::kMaxBodies); 
         
         ImGui::Separator();
-        
-        if (ImGui::Button("Add Gear")) {
-            GearEngine::AddBodyCommand cmd;
-            cmd.position = glm::vec3((rand() % 100 - 50) / 10.0f, (rand() % 100 - 50) / 10.0f, 0.0f);
-            cmd.radius = (rand() % 20 + 5) / 10.0f; // Random radius between 0.5 and 2.5
-            command_queue.PushCommand(cmd);
-        }
-        
-        ImGui::SameLine();
+        ImGui::Text("Controls:");
+        ImGui::BulletText("Left-Click: Place Gear (Snaps to edges)");
+        ImGui::BulletText("Left-Click & Drag: Move Gear (Auto-links)");
+        ImGui::BulletText("Delete Key: Delete Hovered/Selected Gear");
+        ImGui::BulletText("Scroll Wheel: Resize Brush");
+        ImGui::Separator();
         
         if (ImGui::Button("Clear All")) {
             for (uint32_t i = 1; i < engine_state.GetCapacity(); ++i) {
@@ -140,67 +251,36 @@ int main(int argc, char** argv) {
                     command_queue.PushCommand(cmd);
                 }
             }
-            selected_gears.clear();
-            constraint_arrays.gears.clear(); // Clear constraints too
+            constraint_arrays.gears.clear();
+            selected_motor_gear = 0;
+            grabbed_gear = -1;
         }
 
         ImGui::Separator();
-        ImGui::Text("Gear Linker:");
-        
-        // Remove stale selections
-        selected_gears.erase(std::remove_if(selected_gears.begin(), selected_gears.end(), 
-            [&](uint32_t id) { return !engine_state.IsIndexActive(id); }), selected_gears.end());
-
-        ImGui::BeginChild("GearList", ImVec2(0, 150), true);
-        for (uint32_t i = 1; i < engine_state.GetCapacity(); ++i) {
-            if (engine_state.IsIndexActive(i)) {
-                bool is_selected = std::find(selected_gears.begin(), selected_gears.end(), i) != selected_gears.end();
-                if (ImGui::Selectable(("Gear ID " + std::to_string(i)).c_str(), is_selected)) {
-                    if (is_selected) {
-                        selected_gears.erase(std::remove(selected_gears.begin(), selected_gears.end(), i), selected_gears.end());
-                    } else {
-                        selected_gears.push_back(i);
-                    }
-                }
-            }
-        }
-        ImGui::EndChild();
-
-        if (selected_gears.size() == 2) {
-            if (ImGui::Button("Link Selected Gears")) {
-                GearEngine::AddGearConstraintCommand cmd;
-                cmd.constraint.body_a = {selected_gears[0], engine_state.GetGeneration(selected_gears[0])};
-                cmd.constraint.body_b = {selected_gears[1], engine_state.GetGeneration(selected_gears[1])};
-                
-                float r_a = engine_state.GetBodies().radii[selected_gears[0]];
-                float r_b = engine_state.GetBodies().radii[selected_gears[1]];
-                cmd.constraint.ratio = r_a / r_b; // Standard gear ratio
-                
-                command_queue.PushCommand(cmd);
-                selected_gears.clear();
-            }
-        } else if (selected_gears.size() == 1) {
+        if (selected_motor_gear != 0 && engine_state.IsIndexActive(selected_motor_gear)) {
+            ImGui::Text("Motor Control (Gear %d)", selected_motor_gear);
             ImGui::SliderFloat("Speed", &motor_speed, -20.0f, 20.0f);
             if (ImGui::Button("Apply Motor")) {
-                uint32_t a = selected_gears[0];
-                engine_state.GetBodies().angular_velocities[a].z = motor_speed;
+                engine_state.GetBodies().angular_velocities[selected_motor_gear].z = motor_speed;
             }
         } else {
-            ImGui::TextDisabled("Select 1 gear for Motor, 2 to Link.");
+            ImGui::TextDisabled("Click a gear to access motor controls.");
         }
 
         ImGui::End();
 
         // Rendering
         ImGui::Render();
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
-        glClearColor(0.12f, 0.12f, 0.12f, 1.0f);
+        glClearColor(0.04f, 0.04f, 0.04f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         
         // Draw Debug Renderer
-        renderer.Draw(engine_state, constraint_arrays, camera, display_w, display_h);
+        renderer.Draw(engine_state, constraint_arrays, camera, display_w, display_h, grabbed_gear != -1 ? grabbed_gear : selected_motor_gear);
+        
+        if (grabbed_gear == -1 && !io.WantCaptureMouse && hovered_gear == -1) {
+            renderer.DrawPreviewGear(placement_pos, next_radius, is_snapped, camera, display_w, display_h);
+        }
         
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
