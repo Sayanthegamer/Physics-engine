@@ -54,7 +54,7 @@ The executable will be located in the `build/` directory.
 
 ### Build Considerations (MSVC)
 - **C++ Exceptions (`/EHsc`)**: Although the engine core heavily leverages DOD, we utilize `std::variant` for the deferred `CommandQueue`. Because `std::variant` internally requires exception unwind semantics, MSVC requires the `/EHsc` compile flag.
-- **Strict Warnings (`/WX`)**: We compile with warnings-as-errors. During development, placeholder variables (like unused `bodies` references in the constraint solver) must be explicitly commented out in the parameter list (e.g., `RigidBodySoA& /*bodies*/`) to prevent C4100 unreferenced parameter build failures.
+- **Strict Warnings (`/WX`)**: We compile with warnings-as-errors. During development, placeholder variables (like unused `bodies` references in the constraint solver) must use the `[[maybe_unused]]` attribute (e.g., `[[maybe_unused]] RigidBodySoA& bodies`) to prevent C4100 unreferenced parameter build failures, keeping the code modern and self-documenting.
 
 ---
 *For a deeper dive into the specific systems, please review `docs/ARCHITECTURE.md`.*

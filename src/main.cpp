@@ -252,6 +252,7 @@ int main(int argc, char** argv) {
                 }
             }
             constraint_arrays.gears.clear();
+            constraint_arrays.motors.clear();
             selected_motor_gear = 0;
             grabbed_gear = -1;
         }
@@ -261,7 +262,20 @@ int main(int argc, char** argv) {
             ImGui::Text("Motor Control (Gear %d)", selected_motor_gear);
             ImGui::SliderFloat("Speed", &motor_speed, -20.0f, 20.0f);
             if (ImGui::Button("Apply Motor")) {
-                engine_state.GetBodies().angular_velocities[selected_motor_gear].z = motor_speed;
+                bool found = false;
+                for (auto& mc : constraint_arrays.motors) {
+                    if (mc.body.index == selected_motor_gear) {
+                        mc.target_speed = motor_speed;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    GearEngine::MotorConstraint mc;
+                    mc.body = {selected_motor_gear, engine_state.GetGeneration(selected_motor_gear)};
+                    mc.target_speed = motor_speed;
+                    constraint_arrays.motors.push_back(mc);
+                }
             }
         } else {
             ImGui::TextDisabled("Click a gear to access motor controls.");

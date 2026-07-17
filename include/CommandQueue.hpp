@@ -63,6 +63,13 @@ public:
                                 return gc.body_a.index == arg.handle.index || gc.body_b.index == arg.handle.index;
                             }),
                         constraints.gears.end());
+                    
+                    constraints.motors.erase(
+                        std::remove_if(constraints.motors.begin(), constraints.motors.end(),
+                            [&](const MotorConstraint& mc) {
+                                return mc.body.index == arg.handle.index;
+                            }),
+                        constraints.motors.end());
                 }
                 else if constexpr (std::is_same_v<T, AddGearConstraintCommand>) {
                     constraints.gears.push_back(arg.constraint);

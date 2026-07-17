@@ -26,10 +26,17 @@ struct AxleConstraint {
     float accumulated_impulse = 0.0f;
 };
 
-// Flat contiguous arrays (No V-Tables)
+struct MotorConstraint {
+    EntityHandle body;
+    float target_speed;
+    
+    float accumulated_impulse = 0.0f;
+};
+
 struct ConstraintArrays {
     std::vector<GearConstraint> gears;
     std::vector<AxleConstraint> axles;
+    std::vector<MotorConstraint> motors;
 };
 
 class ConstraintSolver {
@@ -43,6 +50,7 @@ public:
         for (int i = 0; i < iterations; ++i) {
             SolveGears(state, bodies, constraints.gears, dt);
             SolveAxles(state, bodies, constraints.axles, dt);
+            SolveMotors(state, bodies, constraints.motors, dt);
         }
     }
 
@@ -65,7 +73,7 @@ public:
     }
 
 private:
-    void SolveGears(EngineState& state, RigidBodySoA& bodies, std::vector<GearConstraint>& gears, float /*dt*/) {
+    void SolveGears(EngineState& state, RigidBodySoA& bodies, std::vector<GearConstraint>& gears, float [[maybe_unused]] dt) {
         for (auto& gear : gears) {
             if (!state.IsHandleValid(gear.body_a) || !state.IsHandleValid(gear.body_b)) {
                 continue; // Stale handle detection
@@ -97,12 +105,28 @@ private:
         }
     }
 
-    void SolveAxles(EngineState& state, RigidBodySoA& /*bodies*/, std::vector<AxleConstraint>& axles, float /*dt*/) {
+    void SolveAxles(EngineState& state, [[maybe_unused]] RigidBodySoA& bodies, std::vector<AxleConstraint>& axles, float [[maybe_unused]] dt) {
         for (auto& axle : axles) {
             if (!state.IsHandleValid(axle.body)) {
                 continue;
             }
             // Analytical axle solving logic (fixing translation or rotation axes)
+        }
+    }
+
+    void SolveMotors(EngineState& state, RigidBodySoA& bodies, std::vector<MotorConstraint>& motors, float [[maybe_unused]] dt) {
+        for (auto& motor : motors) {
+            if (!state.IsHandleValid(motor.body)) continue;
+            
+            uint32_t a = motor.body.index;
+            float invI = bodies.inverse_inertias[a][2][2];
+            if (invI == 0.0f) continue;
+            
+            float mass_c = 1.0f / invI;
+            float C_dot = bodies.angular_velocities[a].z - motor.target_speed;
+            float lambda = -mass_c * C_dot;
+            
+            bodies.angular_velocities[a].z += invI * lambda;
         }
     }
 };
