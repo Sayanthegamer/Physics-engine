@@ -26,6 +26,14 @@ GearEngine is designed for high-fidelity, deterministic mechanical simulations (
 5. **Sequential Impulse Solver**
    - *Why:* The Box2D-style iterative sequential impulse solver is robust for analytical constraints (perfect gear teeth synchronization without slipping) and handles warm-starting natively.
 
+6. **SDF Procedural GPU Rendering**
+   - *Why:* Generating dynamic vertex buffers for thousands of complex gear teeth destroys memory bandwidth.
+   - *How:* The engine uploads simple `[-1.5, 1.5]` instanced quads. The Fragment Shader evaluates a Signed Distance Field (SDF) using a polar square wave to mathematically carve out perfectly scaled gear teeth entirely on the GPU.
+
+7. **CAD-Style 3D Interaction**
+   - *Why:* ImGui lists do not scale to thousands of components. Visual spatial interaction is required.
+   - *How:* Uses `glm::unProject` raycasting to intersect the Z=0 plane. Provides instant auto-snapping, drag-and-drop continuous re-linking, and Hover-Delete workflows.
+
 ## Getting Started
 
 ### Prerequisites

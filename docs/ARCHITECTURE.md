@@ -50,3 +50,16 @@ The core physics solver relies entirely on Jacobian-based velocity constraints r
 - **1D Rotational Jacobian**: For performance and stability, gear interlocking is evaluated strictly along the Z-axis. The Jacobian matrix is implicitly $J = [1, ratio]$.
 - **Effective Mass Calculation**: When a constraint is evaluated, we compute the effective mass as $M_c = (I_a^{-1} + ratio^2 \cdot I_b^{-1})^{-1}$. 
 - **Sequential Impulse**: The solver calculates a corrective impulse $\lambda$ across 8 iterations per physics tick, instantly resolving conflicting angular velocities without the instability of spring-based penalty forces.
+
+## 9. CAD-Style Interaction & Raycasting (Phase 4)
+
+We eliminated the ImGui-based gear selection lists in favor of direct 3D spatial interaction.
+- **Raycasting**: We utilize `glm::unProject` to cast a ray from the mouse's normalized device coordinates through the View/Projection matrix and intersect it with the Z=0 plane.
+- **Auto-Snapping**: While hovering a preview gear, we iterate through the `RigidBodySoA` to find the nearest neighbor. If within tolerance, we calculate a tangent placement vector and automatically construct a `GearConstraint` bridging the two bodies upon placement.
+- **Constraint Pruning**: The interaction model utilizes the `Delete` key on hovered gears. The `RemoveBodyCommand` was augmented to aggressively prune the `constraints.gears` array on execution, preventing dangling pointers or stale handles from crashing the solver.
+
+## 10. SDF Gear Rendering & Teeth Quantization (Phase 5)
+
+To visually validate the mathematical perfection of the Sequential Impulse solver, we implemented interlocking teeth.
+- **Procedural SDF Generation**: Instead of CPU-side VBO generation (which scales poorly for $O(N)$ dynamic gears), we submit a 6-vertex quad array to the instanced pipeline. The Fragment Shader evaluates the pixel's polar coordinate $(r, \theta)$ and carves out teeth using a boundary derived from $1.0 + depth \cdot sign(\sin(Z \cdot \theta))$.
+- **Discrete Gear Modules**: True mechanical gears must share a uniform tooth size (module). The engine tracks gears purely by their integer teeth count ($Z \in [4, 64]$). The physical radius is strictly derived via $R = Z / density$. This guarantees that a tiny 4-tooth gear and a massive 64-tooth gear mesh seamlessly without clipping.
