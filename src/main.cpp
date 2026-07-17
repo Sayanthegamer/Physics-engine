@@ -66,6 +66,10 @@ int main(int argc, char** argv) {
     const float kFixedDt = 1.0f / 60.0f;
     float accumulator = 0.0f;
     
+    // UI State
+    std::vector<uint32_t> selected_gears;
+    float motor_speed = 5.0f;
+    
     auto previous_time = std::chrono::high_resolution_clock::now();
 
     // Main loop
@@ -111,7 +115,6 @@ int main(int argc, char** argv) {
         ImGui::Begin("Engine Statistics");
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         
-        // Count active bodies (DOD iteration)
         int active_count = 0;
         for (uint32_t i = 1; i < engine_state.GetCapacity(); ++i) {
             if (engine_state.IsIndexActive(i)) active_count++;
@@ -122,8 +125,8 @@ int main(int argc, char** argv) {
         
         if (ImGui::Button("Add Gear")) {
             GearEngine::AddBodyCommand cmd;
-            cmd.position = glm::vec3((rand() % 200 - 100) / 10.0f, (rand() % 200 - 100) / 10.0f, 0.0f);
-            cmd.radius = 1.0f;
+            cmd.position = glm::vec3((rand() % 100 - 50) / 10.0f, (rand() % 100 - 50) / 10.0f, 0.0f);
+            cmd.radius = (rand() % 20 + 5) / 10.0f; // Random radius between 0.5 and 2.5
             command_queue.PushCommand(cmd);
         }
         
@@ -137,7 +140,55 @@ int main(int argc, char** argv) {
                     command_queue.PushCommand(cmd);
                 }
             }
+            selected_gears.clear();
+            constraint_arrays.gears.clear(); // Clear constraints too
         }
+
+        ImGui::Separator();
+        ImGui::Text("Gear Linker:");
+        
+        // Remove stale selections
+        selected_gears.erase(std::remove_if(selected_gears.begin(), selected_gears.end(), 
+            [&](uint32_t id) { return !engine_state.IsIndexActive(id); }), selected_gears.end());
+
+        ImGui::BeginChild("GearList", ImVec2(0, 150), true);
+        for (uint32_t i = 1; i < engine_state.GetCapacity(); ++i) {
+            if (engine_state.IsIndexActive(i)) {
+                bool is_selected = std::find(selected_gears.begin(), selected_gears.end(), i) != selected_gears.end();
+                if (ImGui::Selectable(("Gear ID " + std::to_string(i)).c_str(), is_selected)) {
+                    if (is_selected) {
+                        selected_gears.erase(std::remove(selected_gears.begin(), selected_gears.end(), i), selected_gears.end());
+                    } else {
+                        selected_gears.push_back(i);
+                    }
+                }
+            }
+        }
+        ImGui::EndChild();
+
+        if (selected_gears.size() == 2) {
+            if (ImGui::Button("Link Selected Gears")) {
+                GearEngine::AddGearConstraintCommand cmd;
+                cmd.constraint.body_a = {selected_gears[0], engine_state.GetGeneration(selected_gears[0])};
+                cmd.constraint.body_b = {selected_gears[1], engine_state.GetGeneration(selected_gears[1])};
+                
+                float r_a = engine_state.GetBodies().radii[selected_gears[0]];
+                float r_b = engine_state.GetBodies().radii[selected_gears[1]];
+                cmd.constraint.ratio = r_a / r_b; // Standard gear ratio
+                
+                command_queue.PushCommand(cmd);
+                selected_gears.clear();
+            }
+        } else if (selected_gears.size() == 1) {
+            ImGui::SliderFloat("Speed", &motor_speed, -20.0f, 20.0f);
+            if (ImGui::Button("Apply Motor")) {
+                uint32_t a = selected_gears[0];
+                engine_state.GetBodies().angular_velocities[a].z = motor_speed;
+            }
+        } else {
+            ImGui::TextDisabled("Select 1 gear for Motor, 2 to Link.");
+        }
+
         ImGui::End();
 
         // Rendering
@@ -149,7 +200,7 @@ int main(int argc, char** argv) {
         glClear(GL_COLOR_BUFFER_BIT);
         
         // Draw Debug Renderer
-        renderer.Draw(engine_state, camera, display_w, display_h);
+        renderer.Draw(engine_state, constraint_arrays, camera, display_w, display_h);
         
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

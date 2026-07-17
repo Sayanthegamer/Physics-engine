@@ -78,12 +78,33 @@ void main()
 }
 )";
 
+const char* lineVertexShaderSource = R"(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+uniform mat4 view;
+uniform mat4 projection;
+void main()
+{
+    gl_Position = projection * view * vec4(aPos, 1.0);
+}
+)";
+
+const char* lineFragmentShaderSource = R"(
+#version 330 core
+out vec4 FragColor;
+void main()
+{
+    FragColor = vec4(1.0, 0.2, 0.2, 1.0); // Red line
+}
+)";
+
 class DebugRenderer {
 public:
     DebugRenderer() {
         LoadGLFunctions();
         CompileShaders();
         SetupCircleGeometry();
+        SetupLineGeometry();
         
         instance_matrices_.reserve(kMaxBodies);
         instance_colors_.reserve(kMaxBodies);
@@ -95,9 +116,13 @@ public:
         if (glDeleteBuffers) glDeleteBuffers(1, &instance_matrix_vbo_);
         if (glDeleteBuffers) glDeleteBuffers(1, &instance_color_vbo_);
         if (glDeleteProgram) glDeleteProgram(shader_program_);
+        
+        if (glDeleteVertexArrays) glDeleteVertexArrays(1, &line_vao_);
+        if (glDeleteBuffers) glDeleteBuffers(1, &line_vbo_);
+        if (glDeleteProgram) glDeleteProgram(line_shader_program_);
     }
 
-    void Draw(const EngineState& state, const EditorCamera& camera, int width, int height) {
+    void Draw(const EngineState& state, const ConstraintArrays& constraints, const EditorCamera& camera, int width, int height) {
         if (width == 0 || height == 0 || !glDrawArraysInstanced) return;
         
         instance_matrices_.clear();
@@ -139,6 +164,29 @@ public:
         
         glBindVertexArray(0);
         glUseProgram(0);
+
+        // --- Draw Constraints (Lines) ---
+        if (!constraints.gears.empty()) {
+            std::vector<glm::vec3> line_vertices;
+            for (const auto& gear : constraints.gears) {
+                if (!state.IsHandleValid(gear.body_a) || !state.IsHandleValid(gear.body_b)) continue;
+                line_vertices.push_back(bodies.positions[gear.body_a.index]);
+                line_vertices.push_back(bodies.positions[gear.body_b.index]);
+            }
+            if (!line_vertices.empty()) {
+                glUseProgram(line_shader_program_);
+                glUniformMatrix4fv(glGetUniformLocation(line_shader_program_, "view"), 1, GL_FALSE, glm::value_ptr(view));
+                glUniformMatrix4fv(glGetUniformLocation(line_shader_program_, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+                
+                glBindVertexArray(line_vao_);
+                glBindBuffer(GL_ARRAY_BUFFER, line_vbo_);
+                glBufferData(GL_ARRAY_BUFFER, line_vertices.size() * sizeof(glm::vec3), line_vertices.data(), GL_DYNAMIC_DRAW);
+                glDrawArrays(GL_LINES, 0, (GLsizei)line_vertices.size());
+                
+                glBindVertexArray(0);
+                glUseProgram(0);
+            }
+        }
     }
 
 private:
@@ -196,7 +244,10 @@ private:
             float theta = 2.0f * 3.1415926f * float(i) / float(segments);
             circle_vertices.push_back(glm::vec3(cosf(theta), sinf(theta), 0.0f));
         }
-        circle_vertex_count_ = segments;
+        // Add a center point so the GL_LINE_LOOP draws a "spoke" from the edge to the center, making rotation visible!
+        circle_vertices.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
+        
+        circle_vertex_count_ = segments + 1;
 
         glGenVertexArrays(1, &circle_vao_);
         glGenBuffers(1, &circle_vbo_);
@@ -225,6 +276,35 @@ private:
         glBindVertexArray(0);
     }
 
+    void SetupLineGeometry() {
+        if (!glGenVertexArrays) return;
+        glGenVertexArrays(1, &line_vao_);
+        glGenBuffers(1, &line_vbo_);
+        
+        glBindVertexArray(line_vao_);
+        glBindBuffer(GL_ARRAY_BUFFER, line_vbo_);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+        glBindVertexArray(0);
+        
+        // Compile Line Shader
+        GLuint vShader = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vShader, 1, &lineVertexShaderSource, NULL);
+        glCompileShader(vShader);
+        
+        GLuint fShader = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fShader, 1, &lineFragmentShaderSource, NULL);
+        glCompileShader(fShader);
+        
+        line_shader_program_ = glCreateProgram();
+        glAttachShader(line_shader_program_, vShader);
+        glAttachShader(line_shader_program_, fShader);
+        glLinkProgram(line_shader_program_);
+        
+        glDeleteShader(vShader);
+        glDeleteShader(fShader);
+    }
+
     // Function pointers
     PFNGLGENVERTEXARRAYSPROC glGenVertexArrays = nullptr;
     PFNGLBINDVERTEXARRAYPROC glBindVertexArray = nullptr;
@@ -248,11 +328,15 @@ private:
     PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays = nullptr;
     PFNGLDELETEBUFFERSPROC glDeleteBuffers = nullptr;
     PFNGLDELETEPROGRAMPROC glDeleteProgram = nullptr;
+    // Basic DrawArrays (included in OpenGL 1.1) is used for lines, no need to load it dynamically.
 
     GLuint shader_program_ = 0;
     GLuint circle_vao_ = 0, circle_vbo_ = 0;
     GLuint instance_matrix_vbo_ = 0, instance_color_vbo_ = 0;
     int circle_vertex_count_ = 0;
+    
+    GLuint line_shader_program_ = 0;
+    GLuint line_vao_ = 0, line_vbo_ = 0;
 
     std::vector<glm::mat4> instance_matrices_;
     std::vector<glm::vec4> instance_colors_;

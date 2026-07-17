@@ -38,11 +38,20 @@ public:
                     EntityHandle handle = state.AllocateBody();
                     if (handle.IsValid()) {
                         RigidBodySoA& bodies = state.GetBodies();
-                        bodies.positions[handle.index] = arg.position;
-                        bodies.radii[handle.index] = arg.radius;
-                        // Zero out velocities for now
-                        bodies.linear_velocities[handle.index] = glm::vec3(0.0f);
-                        bodies.angular_velocities[handle.index] = glm::vec3(0.0f);
+                        uint32_t i = handle.index;
+                        bodies.positions[i] = arg.position;
+                        bodies.radii[i] = arg.radius;
+                        bodies.linear_velocities[i] = glm::vec3(0.0f);
+                        bodies.angular_velocities[i] = glm::vec3(0.0f);
+                        bodies.rotations[i] = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+                        
+                        // Physics Mass/Inertia Initialization
+                        float mass = 3.14159f * arg.radius * arg.radius;
+                        bodies.inverse_masses[i] = 1.0f / mass;
+                        
+                        float I_zz = 0.5f * mass * arg.radius * arg.radius;
+                        bodies.inverse_inertias[i] = glm::mat3(0.0f);
+                        bodies.inverse_inertias[i][2][2] = 1.0f / I_zz;
                     }
                 }
                 else if constexpr (std::is_same_v<T, RemoveBodyCommand>) {

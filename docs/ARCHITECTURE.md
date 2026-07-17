@@ -43,3 +43,10 @@ To visualize the DOD state without compromising performance or adding heavy depe
   1. Evaluate Constraints & Solve Velocities (`solver.Solve()`)
   2. Integrate Velocities into Positions (`solver.IntegratePositions()`)
 - **Why?** Updating positions *before* solving velocities leads to latent collision resolution and silent visual jitter when the constraint math is fully implemented.
+
+## 8. Analytical Gear Constraints (Phase 3)
+
+The core physics solver relies entirely on Jacobian-based velocity constraints rather than geometric collision detection.
+- **1D Rotational Jacobian**: For performance and stability, gear interlocking is evaluated strictly along the Z-axis. The Jacobian matrix is implicitly $J = [1, ratio]$.
+- **Effective Mass Calculation**: When a constraint is evaluated, we compute the effective mass as $M_c = (I_a^{-1} + ratio^2 \cdot I_b^{-1})^{-1}$. 
+- **Sequential Impulse**: The solver calculates a corrective impulse $\lambda$ across 8 iterations per physics tick, instantly resolving conflicting angular velocities without the instability of spring-based penalty forces.
