@@ -1,0 +1,23 @@
+# CMake build directories
+build/
+build-*/
+out/
+bin/
+
+# Visual Studio / MSVC
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# Ninja
+.ninja_deps
+.ninja_log
+
+# FetchContent / External dependencies
+_deps/
+
+# OS specific
+.DS_Store
+Thumbs.db
