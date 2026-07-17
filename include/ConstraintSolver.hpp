@@ -46,6 +46,24 @@ public:
         }
     }
 
+    void IntegratePositions(EngineState& state, float dt) {
+        RigidBodySoA& bodies = state.GetBodies();
+        uint32_t cap = state.GetCapacity();
+
+        for (uint32_t i = 1; i < cap; ++i) {
+            if (!state.IsIndexActive(i)) continue;
+
+            bodies.positions[i] += bodies.linear_velocities[i] * dt;
+            
+            // Basic rotation integration (angular velocity vector -> quaternion)
+            if (glm::length(bodies.angular_velocities[i]) > 0.0001f) {
+                glm::quat spin(0.0f, bodies.angular_velocities[i].x, bodies.angular_velocities[i].y, bodies.angular_velocities[i].z);
+                glm::quat new_rot = bodies.rotations[i] + (spin * bodies.rotations[i]) * (0.5f * dt);
+                bodies.rotations[i] = glm::normalize(new_rot);
+            }
+        }
+    }
+
 private:
     void SolveGears(EngineState& state, RigidBodySoA& /*bodies*/, std::vector<GearConstraint>& gears, float /*dt*/) {
         for (auto& gear : gears) {

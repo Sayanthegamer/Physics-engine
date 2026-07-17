@@ -8,7 +8,11 @@
 namespace GearEngine {
 
 // Deferred command queue structures
-struct AddBodyCommand {}; 
+struct AddBodyCommand { 
+    glm::vec3 position;
+    float radius;
+    // can add velocity/mass later
+}; 
 struct RemoveBodyCommand { EntityHandle handle; };
 struct AddGearConstraintCommand { GearConstraint constraint; };
 struct AddAxleConstraintCommand { AxleConstraint constraint; };
@@ -31,7 +35,15 @@ public:
             std::visit([&](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
                 if constexpr (std::is_same_v<T, AddBodyCommand>) {
-                    state.AllocateBody();
+                    EntityHandle handle = state.AllocateBody();
+                    if (handle.IsValid()) {
+                        RigidBodySoA& bodies = state.GetBodies();
+                        bodies.positions[handle.index] = arg.position;
+                        bodies.radii[handle.index] = arg.radius;
+                        // Zero out velocities for now
+                        bodies.linear_velocities[handle.index] = glm::vec3(0.0f);
+                        bodies.angular_velocities[handle.index] = glm::vec3(0.0f);
+                    }
                 }
                 else if constexpr (std::is_same_v<T, RemoveBodyCommand>) {
                     state.RemoveBody(arg.handle);

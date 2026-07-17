@@ -25,3 +25,21 @@ The solver is responsible for evaluating rules between bodies (e.g., locking two
 - **Dear ImGui**: We use immediate-mode UI for rendering the engineering workstation.
 - **Encapsulation**: All `ImGuiStyle` modifications (colors, rounding parameters) are completely decoupled into `UI::ApplyTheme()`. 
 - **Why?** Immediate mode UIs can notoriously clutter application logic. Isolating the "Agency-Quality" dark theme allows us to rapidly iterate on aesthetics without muddying the fixed timestep accumulator logic in `main.cpp`.
+
+## 5. Visual Debugging & Instanced Rendering (`DebugRenderer.hpp`)
+
+To visualize the DOD state without compromising performance or adding heavy dependencies, we implemented a custom instanced OpenGL 3.3 renderer.
+- **Custom GL Loader**: We bypass heavy dependencies (GLEW/GLAD) and avoid utilizing the limited ImGui internal loader by manually mapping only the exact 22 modern OpenGL functions we require (like `glDrawArraysInstanced`) via `glfwGetProcAddress`. This is highly robust and avoids header conflicts.
+- **Instanced Uploads**: The renderer queries `IsIndexActive()` to pack only the *live* SoA data into a heap-allocated `std::vector` staging buffer. This ensures we never upload stale or dead handle data to the GPU.
+
+## 6. Generational Memory & The Command Pipeline (`CommandQueue.hpp`)
+
+- **Deferred Commands**: UI interactions (e.g., clicking "Add Gear") push payloads (`AddBodyCommand`) into a queue. These commands are executed sequentially *before* the physics loop begins.
+- **Generational Free-List Allocator**: To prevent permanently exhausting the `kMaxBodies` limit when bodies are repeatedly created and destroyed, `EngineState` maintains a `free_indices_` stack. When a body is removed via `Clear All`, its index is pushed to the free stack and its `generation` integer increments. This instantly invalidates any stale `EntityHandle` pointing to that index across the entire codebase.
+
+## 7. Integration Step Ordering (`ConstraintSolver.hpp`)
+
+- **Sequential Impulse Flow**: The engine strict adheres to Box2D physics conventions. The loop order is explicitly:
+  1. Evaluate Constraints & Solve Velocities (`solver.Solve()`)
+  2. Integrate Velocities into Positions (`solver.IntegratePositions()`)
+- **Why?** Updating positions *before* solving velocities leads to latent collision resolution and silent visual jitter when the constraint math is fully implemented.

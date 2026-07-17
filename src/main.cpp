@@ -10,6 +10,8 @@
 #include "../include/ConstraintSolver.hpp"
 #include "../include/CommandQueue.hpp"
 #include "../include/UI/Theme.hpp"
+#include "../include/EditorCamera.hpp"
+#include "../include/DebugRenderer.hpp"
 
 // Standard main signature
 int main(int argc, char** argv) {
@@ -57,6 +59,9 @@ int main(int argc, char** argv) {
     GearEngine::ConstraintSolver solver;
     GearEngine::CommandQueue command_queue;
 
+    GearEngine::EditorCamera camera;
+    GearEngine::DebugRenderer renderer; // Must be initialized AFTER ImGui OpenGL loader setup
+
     // Fixed timestep settings
     const float kFixedDt = 1.0f / 60.0f;
     float accumulator = 0.0f;
@@ -79,14 +84,23 @@ int main(int argc, char** argv) {
 
         // Fixed Timestep Physics Simulation
         while (accumulator >= kFixedDt) {
-            // Sequential Impulse Solver
+            // Solve velocity constraints first
             solver.Solve(engine_state, constraint_arrays, kFixedDt, 8);
+            
+            // Integrate velocities into positions
+            solver.IntegratePositions(engine_state, kFixedDt);
             
             accumulator -= kFixedDt;
         }
 
         // Poll Events
         glfwPollEvents();
+        
+        // Update Camera
+        camera.Update(window, frame_time);
+        if (io.MouseWheel != 0.0f) {
+            camera.ProcessScroll(io.MouseWheel);
+        }
 
         // Start ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
@@ -96,7 +110,34 @@ int main(int argc, char** argv) {
         // UI Panel
         ImGui::Begin("Engine Statistics");
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-        ImGui::Text("Active Bodies: %d (Max %d)", 0, GearEngine::kMaxBodies); 
+        
+        // Count active bodies (DOD iteration)
+        int active_count = 0;
+        for (uint32_t i = 1; i < engine_state.GetCapacity(); ++i) {
+            if (engine_state.IsIndexActive(i)) active_count++;
+        }
+        ImGui::Text("Active Bodies: %d (Max %d)", active_count, GearEngine::kMaxBodies); 
+        
+        ImGui::Separator();
+        
+        if (ImGui::Button("Add Gear")) {
+            GearEngine::AddBodyCommand cmd;
+            cmd.position = glm::vec3((rand() % 200 - 100) / 10.0f, (rand() % 200 - 100) / 10.0f, 0.0f);
+            cmd.radius = 1.0f;
+            command_queue.PushCommand(cmd);
+        }
+        
+        ImGui::SameLine();
+        
+        if (ImGui::Button("Clear All")) {
+            for (uint32_t i = 1; i < engine_state.GetCapacity(); ++i) {
+                if (engine_state.IsIndexActive(i)) {
+                    GearEngine::RemoveBodyCommand cmd;
+                    cmd.handle = {i, engine_state.GetGeneration(i)};
+                    command_queue.PushCommand(cmd);
+                }
+            }
+        }
         ImGui::End();
 
         // Rendering
@@ -106,6 +147,9 @@ int main(int argc, char** argv) {
         glViewport(0, 0, display_w, display_h);
         glClearColor(0.12f, 0.12f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+        
+        // Draw Debug Renderer
+        renderer.Draw(engine_state, camera, display_w, display_h);
         
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
