@@ -27,3 +27,25 @@ TEST(UIContextTest, CanSelectDifferentGearTypes) {
     ui_ctx.SetSelectedGearType(GearType::Internal);
     EXPECT_EQ(ui_ctx.GetSelectedGearType(), GearType::Internal);
 }
+
+TEST(UIContextTest, SetsDefaultGearParam0WhenTypeChanges) {
+    UIContext ui_ctx;
+    
+    ui_ctx.SetSelectedGearType(GearType::Helical);
+    EXPECT_EQ(ui_ctx.GetGearParam0(), 30.0f);
+    
+    ui_ctx.SetSelectedGearType(GearType::Bevel);
+    EXPECT_EQ(ui_ctx.GetGearParam0(), 45.0f);
+    
+    ui_ctx.SetSelectedGearType(GearType::Worm);
+    EXPECT_EQ(ui_ctx.GetGearParam0(), 5.0f);
+    
+    ui_ctx.SetSelectedGearType(GearType::Rack);
+    EXPECT_EQ(ui_ctx.GetGearParam0(), 10.0f);
+    
+    ui_ctx.SetSelectedGearType(GearType::Internal);
+    EXPECT_EQ(ui_ctx.GetGearParam0(), 0.5f);
+    
+    ui_ctx.SetGearParam0(25.0f);
+    EXPECT_EQ(ui_ctx.GetGearParam0(), 25.0f);
+}

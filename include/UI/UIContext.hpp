@@ -16,6 +16,9 @@ public:
         selected_gear_type_ = type;
         if (type == GearType::Helical) gear_param0_ = 30.0f;
         else if (type == GearType::Bevel) gear_param0_ = 45.0f;
+        else if (type == GearType::Worm) gear_param0_ = 5.0f;
+        else if (type == GearType::Rack) gear_param0_ = 10.0f;
+        else if (type == GearType::Internal) gear_param0_ = 0.5f;
     }
 
     float GetGearParam0() const { return gear_param0_; }

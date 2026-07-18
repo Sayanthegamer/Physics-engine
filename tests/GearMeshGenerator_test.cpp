@@ -59,3 +59,24 @@ TEST(GearMeshGeneratorTest, GeneratesBevelGear) {
     EXPECT_GT(mesh.vertices.size(), 0);
     EXPECT_GT(mesh.indices.size(), 0);
 }
+
+TEST(GearMeshGeneratorTest, GeneratesWormGear) {
+    GearMeshGenerator generator;
+    MeshData mesh = generator.Generate(1.0f, 4, 20.0f, 0.1f, GearType::Worm, 5.0f);
+    EXPECT_GT(mesh.vertices.size(), 0);
+    EXPECT_GT(mesh.indices.size(), 0);
+}
+
+TEST(GearMeshGeneratorTest, GeneratesRackGear) {
+    GearMeshGenerator generator;
+    MeshData mesh = generator.Generate(1.0f, 20, 20.0f, 0.1f, GearType::Rack, 10.0f);
+    EXPECT_GT(mesh.vertices.size(), 0);
+    EXPECT_GT(mesh.indices.size(), 0);
+}
+
+TEST(GearMeshGeneratorTest, GeneratesInternalGear) {
+    GearMeshGenerator generator;
+    MeshData mesh = generator.Generate(1.0f, 20, 20.0f, 0.1f, GearType::Internal, 0.2f);
+    EXPECT_GT(mesh.vertices.size(), 0);
+    EXPECT_GT(mesh.indices.size(), 0);
+}

@@ -284,6 +284,15 @@ int main(int argc, char** argv) {
         } else if (ui_context.GetSelectedGearType() == gear_engine::GearType::Bevel) {
             float param0 = ui_context.GetGearParam0();
             if (ImGui::SliderFloat("Pitch Angle", &param0, 10.0f, 80.0f)) ui_context.SetGearParam0(param0);
+        } else if (ui_context.GetSelectedGearType() == gear_engine::GearType::Worm) {
+            float param0 = ui_context.GetGearParam0();
+            if (ImGui::SliderFloat("Lead Angle", &param0, 1.0f, 30.0f)) ui_context.SetGearParam0(param0);
+        } else if (ui_context.GetSelectedGearType() == gear_engine::GearType::Rack) {
+            float param0 = ui_context.GetGearParam0();
+            if (ImGui::SliderFloat("Length", &param0, 5.0f, 50.0f)) ui_context.SetGearParam0(param0);
+        } else if (ui_context.GetSelectedGearType() == gear_engine::GearType::Internal) {
+            float param0 = ui_context.GetGearParam0();
+            if (ImGui::SliderFloat("Thickness", &param0, 0.1f, 2.0f)) ui_context.SetGearParam0(param0);
         }
         ImGui::Separator();
         ImGui::Text("Controls:\n"
