@@ -8,6 +8,7 @@ TEST(WorkspaceEnvironmentTest, DefaultConfigHasGridAndFloorEnabled) {
     
     EXPECT_TRUE(env.IsGridEnabled());
     EXPECT_TRUE(env.IsFloorEnabled());
+    EXPECT_FALSE(env.IsWireframeEnabled());
 }
 
 TEST(WorkspaceEnvironmentTest, CanToggleGridAndFloor) {
@@ -21,4 +22,7 @@ TEST(WorkspaceEnvironmentTest, CanToggleGridAndFloor) {
     
     env.SetGridEnabled(true);
     EXPECT_TRUE(env.IsGridEnabled());
+
+    env.SetWireframeEnabled(true);
+    EXPECT_TRUE(env.IsWireframeEnabled());
 }

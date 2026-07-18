@@ -251,6 +251,9 @@ int main(int argc, char** argv) {
         ImGui::SameLine();
         bool floor_en = env.IsFloorEnabled();
         if (ImGui::Checkbox("Show Floor", &floor_en)) env.SetFloorEnabled(floor_en);
+        ImGui::SameLine();
+        bool wf_en = env.IsWireframeEnabled();
+        if (ImGui::Checkbox("Wireframe", &wf_en)) env.SetWireframeEnabled(wf_en);
         
         ImGui::Separator();
         
@@ -307,7 +310,11 @@ int main(int argc, char** argv) {
         }
         
         // 2. Draw opaque gears
+        if (env.IsWireframeEnabled()) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        
         renderer.Draw(engine_state, constraint_arrays, camera, display_w, display_h, grabbed_gear != -1 ? grabbed_gear : selected_motor_gear);
+        
+        if (env.IsWireframeEnabled()) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         
         // 3. Draw transparent infinite grid
         if (env.IsGridEnabled()) {
@@ -316,7 +323,9 @@ int main(int argc, char** argv) {
         
         // 4. Draw transparent preview gear
         if (grabbed_gear == -1 && !io.WantCaptureMouse && hovered_gear == -1) {
+            if (env.IsWireframeEnabled()) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
             renderer.DrawPreviewGear(placement_pos, next_radius, is_snapped, camera, display_w, display_h);
+            if (env.IsWireframeEnabled()) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
         
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
