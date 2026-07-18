@@ -13,7 +13,7 @@ public:
         UpdateVectors();
     }
 
-    void Update(GLFWwindow* window, float [[maybe_unused]] dt) {
+    void Update(GLFWwindow* window, float /*dt*/) {
         ImGuiIO& io = ImGui::GetIO();
         
         // Crucial: Don't capture inputs if ImGui wants them (e.g. clicking buttons)

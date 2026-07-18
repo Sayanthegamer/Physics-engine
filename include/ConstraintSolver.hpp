@@ -73,7 +73,7 @@ public:
     }
 
 private:
-    void SolveGears(EngineState& state, RigidBodySoA& bodies, std::vector<GearConstraint>& gears, float [[maybe_unused]] dt) {
+    void SolveGears(EngineState& state, RigidBodySoA& bodies, std::vector<GearConstraint>& gears, float /*dt*/) {
         for (auto& gear : gears) {
             if (!state.IsHandleValid(gear.body_a) || !state.IsHandleValid(gear.body_b)) {
                 continue; // Stale handle detection
@@ -105,7 +105,7 @@ private:
         }
     }
 
-    void SolveAxles(EngineState& state, [[maybe_unused]] RigidBodySoA& bodies, std::vector<AxleConstraint>& axles, float [[maybe_unused]] dt) {
+    void SolveAxles(EngineState& state, [[maybe_unused]] RigidBodySoA& bodies, std::vector<AxleConstraint>& axles, float /*dt*/) {
         for (auto& axle : axles) {
             if (!state.IsHandleValid(axle.body)) {
                 continue;
@@ -114,7 +114,7 @@ private:
         }
     }
 
-    void SolveMotors(EngineState& state, RigidBodySoA& bodies, std::vector<MotorConstraint>& motors, float [[maybe_unused]] dt) {
+    void SolveMotors(EngineState& state, RigidBodySoA& bodies, std::vector<MotorConstraint>& motors, float /*dt*/) {
         for (auto& motor : motors) {
             if (!state.IsHandleValid(motor.body)) continue;
             
