@@ -11,3 +11,4 @@
 - **Math:** GLM 1.0.1
 - **UI:** Dear ImGui v1.90.8
 - **Graphics API:** OpenGL (Custom SDF Procedural GPU Rendering)
+- **Testing:** GoogleTest (GTest)

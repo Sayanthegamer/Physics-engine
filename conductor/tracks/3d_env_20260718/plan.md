@@ -1,8 +1,8 @@
 # Implementation Plan: 3D Gears & Workspace Environment
 
 ## Phase 1: Procedural 3D Gear Generation
-- [ ] Task: Create tests for 3D Gear Mesh generator math and data structures
-- [ ] Task: Implement `GearMeshGenerator` to procedurally build cylinder/teeth vertices and indices
+- [x] Task: Create tests for 3D Gear Mesh generator math and data structures
+- [x] Task: Implement `GearMeshGenerator` to procedurally build cylinder/teeth vertices and indices
 - [ ] Task: Update the engine rendering loop to support drawing the 3D meshes for gears
 - [ ] Task: Map the physics `GearConstraint` / `RigidBody` transforms to the 3D gear meshes
 - [ ] Task: Refactor and optimize mesh generation for DOD (Structure of Arrays caching)
