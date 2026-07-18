@@ -1,4 +1,5 @@
-#pragma once
+#ifndef GEARENGINE_INCLUDE_WORKSPACEENVIRONMENT_H_
+#define GEARENGINE_INCLUDE_WORKSPACEENVIRONMENT_H_
 
 namespace gear_engine {
 
@@ -22,3 +23,5 @@ private:
 };
 
 } // namespace gear_engine
+
+#endif // GEARENGINE_INCLUDE_WORKSPACEENVIRONMENT_H_

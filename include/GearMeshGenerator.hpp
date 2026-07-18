@@ -1,4 +1,5 @@
-#pragma once
+#ifndef GEARENGINE_INCLUDE_GEARMESHGENERATOR_H_
+#define GEARENGINE_INCLUDE_GEARMESHGENERATOR_H_
 
 #include <vector>
 #include <glm/glm.hpp>
@@ -23,3 +24,5 @@ public:
 };
 
 } // namespace gear_engine
+
+#endif // GEARENGINE_INCLUDE_GEARMESHGENERATOR_H_

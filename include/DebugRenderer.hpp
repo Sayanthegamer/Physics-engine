@@ -1,4 +1,5 @@
-#pragma once
+#ifndef GEARENGINE_INCLUDE_DEBUGRENDERER_H_
+#define GEARENGINE_INCLUDE_DEBUGRENDERER_H_
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -686,3 +687,5 @@ private:
 };
 
 } // namespace gear_engine
+
+#endif // GEARENGINE_INCLUDE_DEBUGRENDERER_H_
