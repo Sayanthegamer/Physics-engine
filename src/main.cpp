@@ -10,6 +10,7 @@
 #include "../include/ConstraintSolver.hpp"
 #include "../include/CommandQueue.hpp"
 #include "../include/UI/Theme.hpp"
+#include "../include/UI/UIContext.hpp"
 #include "../include/EditorCamera.hpp"
 #include "../include/DebugRenderer.hpp"
 #include "../include/WorkspaceEnvironment.hpp"
@@ -70,6 +71,7 @@ int main(int argc, char** argv) {
     float accumulator = 0.0f;
     
     // UI State
+    gear_engine::UIContext ui_context;
     int grabbed_gear = -1;
     int next_teeth = 8;
     const float kTeethDensity = 4.0f;
@@ -201,6 +203,7 @@ int main(int argc, char** argv) {
                     gear_engine::EntityHandle new_handle = engine_state.AllocateBody();
                     if (new_handle.IsValid()) {
                         uint32_t i = new_handle.index;
+                        engine_state.GetBodies().gear_types[i] = ui_context.GetSelectedGearType();
                         engine_state.GetBodies().positions[i] = placement_pos;
                         engine_state.GetBodies().radii[i] = next_radius;
                         if (is_snapped) {
@@ -268,6 +271,12 @@ int main(int argc, char** argv) {
         }
         ImGui::Text("Active Bodies: %d (Max %d)", active_count, gear_engine::kMaxBodies); 
         
+        ImGui::Separator();
+        const char* gear_type_names[] = { "Spur", "Helical", "Bevel", "Worm", "Rack", "Internal" };
+        int current_gear_type = (int)ui_context.GetSelectedGearType();
+        if (ImGui::Combo("Next Gear Type", &current_gear_type, gear_type_names, IM_ARRAYSIZE(gear_type_names))) {
+            ui_context.SetSelectedGearType((gear_engine::GearType)current_gear_type);
+        }
         ImGui::Separator();
         ImGui::Text("Controls:\n"
                     " * Left-Click: Place Gear (Snaps to edges)\n"

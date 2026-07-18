@@ -94,6 +94,7 @@ add_executable(GearEngineTests
     tests/WorkspaceEnvironment_test.cpp
     tests/PhysicsUtils_test.cpp
     tests/GearEngine_test.cpp
+    tests/UIContext_test.cpp
     src/GearMeshGenerator.cpp
 )
 
