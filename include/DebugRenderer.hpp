@@ -293,6 +293,9 @@ public:
             model = glm::translate(model, glm::vec3(bodies.positions[i].x, 0.0f, -bodies.positions[i].y));
             model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
             model = model * glm::mat4_cast(bodies.rotations[i]);
+            if (bodies.gear_types[i] == GearType::Worm) {
+                model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+            }
             model = glm::scale(model, glm::vec3(bodies.radii[i]));
             
             glm::vec4 color = ((int)i == highlighted_gear) ? glm::vec4(1.0f, 1.0f, 0.2f, 1.0f) : glm::vec4(0.26f, 0.70f, 0.98f, 1.0f);
@@ -391,6 +394,9 @@ public:
         model = glm::translate(model, glm::vec3(position.x, 0.0f, -position.y));
         model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         model = glm::rotate(model, phi, glm::vec3(0.0f, 0.0f, 1.0f));
+        if (gear_type == GearType::Worm) {
+            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        }
         model = glm::scale(model, glm::vec3(radius));
         
         glm::vec4 color = is_snapped ? glm::vec4(0.2f, 1.0f, 0.2f, 0.8f) : glm::vec4(1.0f, 1.0f, 1.0f, 0.5f);

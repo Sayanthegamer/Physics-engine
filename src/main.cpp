@@ -145,12 +145,51 @@ int main(int argc, char** argv) {
         
         for (uint32_t i = 1; i < engine_state.GetCapacity(); ++i) {
             if (engine_state.IsIndexActive(i) && (int)i != grabbed_gear) {
-                float dist = glm::length(bodies.positions[i] - mouse_world);
+                float dist = 9999.0f;
+                bool is_hovered = false;
+                
+                if (bodies.gear_types[i] == gear_engine::GearType::Rack) {
+                    float length = bodies.gear_params_0[i] > 0.1f ? bodies.gear_params_0[i] : 10.0f;
+                    float hw = length / 2.0f;
+                    float pr = bodies.radii[i];
+                    
+                    glm::vec2 local_m(mouse_world.x - bodies.positions[i].x, mouse_world.y - bodies.positions[i].y);
+                    
+                    float min_y = -pr - 2.0f;
+                    float max_y = -pr + 1.0f;
+                    
+                    if (local_m.x >= -hw && local_m.x <= hw && local_m.y >= min_y && local_m.y <= max_y) {
+                        is_hovered = true;
+                        dist = 0.0f;
+                    } else {
+                        float dx = std::max({-hw - local_m.x, 0.0f, local_m.x - hw});
+                        float dy = std::max({min_y - local_m.y, 0.0f, local_m.y - max_y});
+                        dist = std::sqrt(dx*dx + dy*dy);
+                    }
+                } else if (bodies.gear_types[i] == gear_engine::GearType::Worm) {
+                    float r = bodies.radii[i];
+                    float hw = r; // Radius
+                    float hh = r * 0.5f; // Half length (depth is 0.5)
+                    
+                    glm::vec2 local_m(mouse_world.x - bodies.positions[i].x, mouse_world.y - bodies.positions[i].y);
+                    if (local_m.x >= -hw && local_m.x <= hw && local_m.y >= -hh && local_m.y <= hh) {
+                        is_hovered = true;
+                        dist = 0.0f;
+                    } else {
+                        float dx = std::max({-hw - local_m.x, 0.0f, local_m.x - hw});
+                        float dy = std::max({-hh - local_m.y, 0.0f, local_m.y - hh});
+                        dist = std::sqrt(dx*dx + dy*dy);
+                    }
+                } else {
+                    dist = glm::length(bodies.positions[i] - mouse_world);
+                    is_hovered = dist <= bodies.radii[i];
+                }
+
                 if (dist < min_dist) {
                     min_dist = dist;
                     nearest_gear = i;
                 }
-                if (dist <= bodies.radii[i]) {
+                if (is_hovered) {
                     hovered_gear = i;
                 }
             }
