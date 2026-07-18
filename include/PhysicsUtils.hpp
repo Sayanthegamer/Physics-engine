@@ -5,6 +5,8 @@
 #include <cmath>
 #include <algorithm>
 
+#include "GearEngine.hpp"
+
 namespace gear_engine {
 namespace physics_utils {
 
@@ -19,6 +21,35 @@ namespace physics_utils {
         
         float phi_b = theta_ab + pi - (pi / n_b) + (n_a / n_b) * (theta_ab - phi_a);
         return phi_b;
+    }
+    
+    // Calculates the kinematic transmission ratio between two gears (omega_out / omega_in)
+    // Returns the multiplier for the output gear's speed.
+    inline float CalculateTransmissionRatio(GearType type_in, GearType type_out, float r_in, float r_out) {
+        // Internal gears mesh with their internal teeth, rotating in the SAME direction as the internal gear.
+        if (type_in == GearType::Internal || type_out == GearType::Internal) {
+            return r_in / r_out;
+        }
+        
+        // Rack to Pinion (Linear to Rotational) -> omega = v / r_out
+        if (type_in == GearType::Rack && type_out != GearType::Rack) {
+            return 1.0f / r_out; 
+        }
+        
+        // Pinion to Rack (Rotational to Linear) -> v = omega * r_in
+        if (type_out == GearType::Rack && type_in != GearType::Rack) {
+            return r_in;
+        }
+        
+        // Basic ratio based on pitch radii
+        float ratio = r_in / r_out;
+        
+        // Spur, Helical, Bevel, and Worm gears inherently reverse the direction of rotation (relative to the meshing axis)
+        if (type_in == GearType::Spur || type_in == GearType::Helical || type_in == GearType::Bevel || type_in == GearType::Worm) {
+            return -ratio;
+        }
+        
+        return -ratio; // Default fallback
     }
 
 } // namespace physics_utils

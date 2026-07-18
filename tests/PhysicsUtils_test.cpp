@@ -38,3 +38,30 @@ TEST(PhysicsUtilsTest, CalculatesCorrectPhaseAlignment) {
     // Ah, a gap is exactly at PI! So they mesh perfectly!
     EXPECT_NEAR(std::fmod(phi_b_3 + 2*pi, 2*pi), std::fmod(pi / 4.0f + 2*pi, 2*pi), 0.001f);
 }
+
+TEST(PhysicsUtilsTest, CalculatesDiverseGearTransmissionRatios) {
+    // We expect a new function that takes gear types into account.
+    // For Spur/Helical/Bevel, the speed ratio is typically negative (opposite direction).
+    // ratio = omega_out / omega_in = - (r_in / r_out)
+    
+    // Spur gear
+    EXPECT_FLOAT_EQ(CalculateTransmissionRatio(gear_engine::GearType::Spur, gear_engine::GearType::Spur, 2.0f, 1.0f), -2.0f);
+    
+    // Helical gear
+    EXPECT_FLOAT_EQ(CalculateTransmissionRatio(gear_engine::GearType::Helical, gear_engine::GearType::Helical, 2.0f, 1.0f), -2.0f);
+    
+    // Bevel gear
+    EXPECT_FLOAT_EQ(CalculateTransmissionRatio(gear_engine::GearType::Bevel, gear_engine::GearType::Bevel, 3.0f, 1.0f), -3.0f);
+    
+    // Worm gear (similar to others, negative ratio)
+    EXPECT_FLOAT_EQ(CalculateTransmissionRatio(gear_engine::GearType::Worm, gear_engine::GearType::Spur, 0.1f, 2.0f), -0.05f);
+    
+    // Internal gear (same direction)
+    EXPECT_FLOAT_EQ(CalculateTransmissionRatio(gear_engine::GearType::Spur, gear_engine::GearType::Internal, 1.0f, 4.0f), 0.25f);
+    
+    // Pinion to Rack (Rotational to Linear)
+    EXPECT_FLOAT_EQ(CalculateTransmissionRatio(gear_engine::GearType::Spur, gear_engine::GearType::Rack, 2.5f, 0.0f), 2.5f);
+    
+    // Rack to Pinion (Linear to Rotational)
+    EXPECT_FLOAT_EQ(CalculateTransmissionRatio(gear_engine::GearType::Rack, gear_engine::GearType::Spur, 0.0f, 2.0f), 0.5f);
+}

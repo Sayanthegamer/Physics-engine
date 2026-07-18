@@ -16,6 +16,15 @@ struct EntityHandle {
     bool IsValid() const { return index != 0; } // Assuming 0 is invalid/unallocated
 };
 
+enum class GearType : uint8_t {
+    Spur = 0,
+    Helical = 1,
+    Bevel = 2,
+    Worm = 3,
+    Rack = 4,
+    Internal = 5
+};
+
 // Data-Oriented shared state using pure SoA layout
 struct RigidBodySoA {
     glm::vec3 positions[kMaxBodies];
@@ -27,6 +36,11 @@ struct RigidBodySoA {
     float radii[kMaxBodies]; // Added for visual debugging and collision
     float pressure_angles[kMaxBodies]; // Involute profile parameter
     float clearances[kMaxBodies];      // Involute profile parameter
+    
+    // New parameters for diverse gear types
+    GearType gear_types[kMaxBodies];
+    float gear_params_0[kMaxBodies];
+    float gear_params_1[kMaxBodies];
 };
 
 class EngineState {
