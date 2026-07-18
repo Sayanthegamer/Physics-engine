@@ -212,7 +212,8 @@ uniform mat4 projection;
 
 void main()
 {
-    float t = -nearPoint.y / (farPoint.y - nearPoint.y);
+    float target_y = -0.5; // Grid rests just below the gears
+    float t = (target_y - nearPoint.y) / (farPoint.y - nearPoint.y);
     if (t < 0.0) discard;
     
     vec3 fragPos3D = nearPoint + t * (farPoint - nearPoint);
@@ -288,9 +289,10 @@ public:
         for (uint32_t i = 1; i < cap; ++i) {
             if (!state.IsIndexActive(i)) continue;
 
-            glm::mat4 model = glm::translate(glm::mat4(1.0f), bodies.positions[i]);
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(bodies.positions[i].x, 0.0f, -bodies.positions[i].y));
+            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
             model = model * glm::mat4_cast(bodies.rotations[i]);
-            // Do scale by radius, GearMeshGenerator meshes are cached at radius 1.0f.
             model = glm::scale(model, glm::vec3(bodies.radii[i]));
             
             glm::vec4 color = ((int)i == highlighted_gear) ? glm::vec4(1.0f, 1.0f, 0.2f, 1.0f) : glm::vec4(0.26f, 0.70f, 0.98f, 1.0f);
@@ -358,9 +360,10 @@ public:
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = camera.GetProjectionMatrix((float)width / (float)height);
 
-        // Floor at y = -0.5 to not perfectly overlap with z-fighting on grid (which is at y=0)
-        // Wait, gears are at y=0. So floor should be slightly below, e.g. -0.05
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.05f, 0.0f));
+        // Floor resting just below the grid
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, -0.55f, 0.0f));
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         model = glm::scale(model, glm::vec3(50.0f)); // 50x50 floor
 
         glUniformMatrix4fv(glGetUniformLocation(mesh_shader_program_, "model"), 1, GL_FALSE, glm::value_ptr(model));
@@ -380,7 +383,9 @@ public:
     void DrawPreviewGear(glm::vec3 position, float radius, bool is_snapped, const EditorCamera& camera, int width, int height) {
         if (width == 0 || height == 0 || !glUseProgram) return;
 
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(position.x, 0.0f, -position.y));
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         model = glm::scale(model, glm::vec3(radius));
         
         glm::vec4 color = is_snapped ? glm::vec4(0.2f, 1.0f, 0.2f, 0.8f) : glm::vec4(1.0f, 1.0f, 1.0f, 0.5f);
@@ -598,12 +603,12 @@ private:
         
         // Full screen quad
         std::vector<glm::vec3> grid_vertices = {
-            {-1.0f, 0.0f, -1.0f},
-            { 1.0f, 0.0f, -1.0f},
-            {-1.0f, 0.0f,  1.0f},
-            { 1.0f, 0.0f,  1.0f},
-            {-1.0f, 0.0f,  1.0f},
-            { 1.0f, 0.0f, -1.0f}
+            {-1.0f, -1.0f, 0.0f},
+            { 1.0f, -1.0f, 0.0f},
+            {-1.0f,  1.0f, 0.0f},
+            { 1.0f,  1.0f, 0.0f},
+            {-1.0f,  1.0f, 0.0f},
+            { 1.0f, -1.0f, 0.0f}
         };
 
         glGenVertexArrays(1, &grid_vao_);
@@ -622,8 +627,8 @@ private:
         // we should provide normal data.
         
         std::vector<glm::vec3> grid_normals = {
-            {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f},
-            {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}
+            {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f},
+            {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}
         };
         
         GLuint grid_normal_vbo;

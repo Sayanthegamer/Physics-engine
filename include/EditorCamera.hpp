@@ -102,12 +102,15 @@ public:
         glm::vec3 ray_dir = glm::normalize(glm::vec3(ray_world_far - ray_world_near));
         glm::vec3 ray_origin = glm::vec3(ray_world_near);
         
-        // Intersect with Z=0 plane
-        // ray_origin.z + t * ray_dir.z = 0
-        if (std::abs(ray_dir.z) < 1e-6f) return glm::vec3(0.0f);
+        // Intersect with Y=0 plane (Tabletop)
+        // ray_origin.y + t * ray_dir.y = 0
+        if (std::abs(ray_dir.y) < 1e-6f) return glm::vec3(0.0f);
         
-        float t = -ray_origin.z / ray_dir.z;
-        return ray_origin + ray_dir * t;
+        float t = -ray_origin.y / ray_dir.y;
+        glm::vec3 p = ray_origin + ray_dir * t;
+
+        // Map 3D XZ coordinates back to 2D Physics XY coordinates
+        return glm::vec3(p.x, -p.z, 0.0f);
     }
 
 private:
@@ -122,14 +125,14 @@ private:
         position_ = target_ - front_ * distance_;
     }
 
-    glm::vec3 position_{0.0f, 0.0f, 10.0f};
+    glm::vec3 position_{0.0f, 15.0f, 15.0f};
     glm::vec3 target_{0.0f, 0.0f, 0.0f};
-    glm::vec3 front_{0.0f, 0.0f, -1.0f};
+    glm::vec3 front_{0.0f, -0.707f, -0.707f};
     glm::vec3 up_{0.0f, 1.0f, 0.0f};
 
     float yaw_ = -90.0f;
-    float pitch_ = 0.0f;
-    float distance_ = 10.0f;
+    float pitch_ = -45.0f;
+    float distance_ = 20.0f;
 
     float mouse_sensitivity_ = 0.5f;
     float zoom_speed_ = 1.0f;

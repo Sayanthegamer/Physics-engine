@@ -105,16 +105,13 @@ int main(int argc, char** argv) {
         // Poll Events
         glfwPollEvents();
         
-        // Update Camera
-        camera.Update(window, frame_time);
-        if (io.MouseWheel != 0.0f) {
-            camera.ProcessScroll(io.MouseWheel);
-        }
-
         // Start ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+        
+        // Update Camera (must read io.MouseWheel AFTER NewFrame)
+        camera.Update(window, frame_time);
         
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
@@ -124,10 +121,16 @@ int main(int argc, char** argv) {
         glm::vec3 mouse_world = camera.GetMouseWorldPosition(window, display_w, display_h);
         
         if (!io.WantCaptureMouse && io.MouseWheel != 0.0f) {
-            if (io.MouseWheel > 0) next_teeth++;
-            if (io.MouseWheel < 0) next_teeth--;
-            if (next_teeth < 4) next_teeth = 4;
-            if (next_teeth > 64) next_teeth = 64;
+            if (io.KeyShift) {
+                // Shift + Scroll to resize brush
+                if (io.MouseWheel > 0) next_teeth++;
+                if (io.MouseWheel < 0) next_teeth--;
+                if (next_teeth < 4) next_teeth = 4;
+                if (next_teeth > 64) next_teeth = 64;
+            } else {
+                // Regular scroll to zoom
+                camera.ProcessScroll(io.MouseWheel);
+            }
         }
         
         float next_radius = (float)next_teeth / kTeethDensity;
@@ -198,7 +201,23 @@ int main(int argc, char** argv) {
                             gc.body_b = {(uint32_t)snap_target, engine_state.GetGeneration(snap_target)};
                             // FIX: Ratio must be Target_Radius / New_Radius 
                             // so that w_A + ratio*w_B = 0 enforces equal tangential velocity
-                            gc.ratio = engine_state.GetBodies().radii[snap_target] / next_radius;
+                            gc.ratio = bodies.radii[snap_target] / next_radius;
+                            
+                            // Visually align teeth
+                            float r_a = bodies.radii[snap_target];
+                            float r_b = next_radius;
+                            glm::vec3 pos_a = bodies.positions[snap_target];
+                            glm::vec3 pos_b = placement_pos;
+                            
+                            float theta_ab = atan2(pos_b.y - pos_a.y, pos_b.x - pos_a.x);
+                            glm::vec3 euler_a = glm::eulerAngles(bodies.rotations[snap_target]);
+                            float phi_a = euler_a.z;
+                            float pi = 3.14159265359f;
+                            
+                            // Phase alignment formula
+                            float phi_b = theta_ab + pi + (r_a / r_b) * (theta_ab - phi_a) - (pi / (4.0f * r_b));
+                            engine_state.GetBodies().rotations[i] = glm::quat(glm::vec3(0.0f, 0.0f, phi_b));
+                            
                             constraint_arrays.gears.push_back(gc);
                         }
                     }
@@ -238,11 +257,12 @@ int main(int argc, char** argv) {
         ImGui::Text("Active Bodies: %d (Max %d)", active_count, gear_engine::kMaxBodies); 
         
         ImGui::Separator();
-        ImGui::Text("Controls:");
-        ImGui::BulletText("Left-Click: Place Gear (Snaps to edges)");
-        ImGui::BulletText("Left-Click & Drag: Move Gear (Auto-links)");
-        ImGui::BulletText("Delete Key: Delete Hovered/Selected Gear");
-        ImGui::BulletText("Scroll Wheel: Resize Brush");
+        ImGui::Text("Controls:\n"
+                    " * Left-Click: Place Gear (Snaps to edges)\n"
+                    " * Left-Click & Drag: Move Gear (Auto-links)\n"
+                    " * Delete Key: Delete Hovered/Selected Gear\n"
+                    " * Scroll Wheel: Zoom Camera In/Out\n"
+                    " * Shift + Scroll: Resize Brush");
         ImGui::Separator();
         
         ImGui::Text("View Settings:");
