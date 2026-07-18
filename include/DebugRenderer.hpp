@@ -199,6 +199,14 @@ public:
     }
 
     void Draw(const EngineState& state, const ConstraintArrays& constraints, const EditorCamera& camera, int width, int height, int highlighted_gear = -1) {
+        if (width == 0 || height == 0 || !glUseProgram) return;
+
+        const RigidBodySoA& bodies = state.GetBodies();
+        uint32_t cap = state.GetCapacity();
+
+        glm::mat4 view = camera.GetViewMatrix();
+        glm::mat4 projection = camera.GetProjectionMatrix((float)width / (float)height);
+
         for (uint32_t i = 1; i < cap; ++i) {
             if (!state.IsIndexActive(i)) continue;
 

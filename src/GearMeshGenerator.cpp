@@ -33,7 +33,7 @@ MeshData GearMeshGenerator::Generate(float radius, int num_teeth) {
 
     // Generate front face (simple fan from center)
     glm::vec3 center_front(0.0f, 0.0f, depth);
-    unsigned int center_idx = mesh.vertices.size();
+    unsigned int center_idx = static_cast<unsigned int>(mesh.vertices.size());
     mesh.vertices.push_back({center_front, glm::vec3(0.0f, 0.0f, 1.0f)});
     
     for (int i = 0; i < segments; ++i) {
