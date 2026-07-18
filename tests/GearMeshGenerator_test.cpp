@@ -45,3 +45,17 @@ TEST(GearMeshGeneratorTest, InvoluteMathCalculatesCorrectPoints) {
     EXPECT_NEAR(p1.x, expected_x, 0.001f);
     EXPECT_NEAR(p1.y, expected_y, 0.001f);
 }
+
+TEST(GearMeshGeneratorTest, GeneratesHelicalGear) {
+    GearMeshGenerator generator;
+    MeshData mesh = generator.Generate(1.0f, 20, 20.0f, 0.1f, GearType::Helical, 30.0f); // 30 deg helix angle
+    EXPECT_GT(mesh.vertices.size(), 0);
+    EXPECT_GT(mesh.indices.size(), 0);
+}
+
+TEST(GearMeshGeneratorTest, GeneratesBevelGear) {
+    GearMeshGenerator generator;
+    MeshData mesh = generator.Generate(1.0f, 20, 20.0f, 0.1f, GearType::Bevel, 45.0f); // 45 deg pitch angle
+    EXPECT_GT(mesh.vertices.size(), 0);
+    EXPECT_GT(mesh.indices.size(), 0);
+}

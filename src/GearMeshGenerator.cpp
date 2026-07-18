@@ -12,7 +12,7 @@ namespace involute {
     }
 }
 
-MeshData GearMeshGenerator::Generate(float pitch_radius, int num_teeth, float pressure_angle, float clearance) {
+MeshData GearMeshGenerator::Generate(float pitch_radius, int num_teeth, float pressure_angle, float clearance, GearType gear_type, float param0) {
     MeshData mesh;
     
     if (num_teeth <= 0 || pitch_radius <= 0.0f) {
@@ -91,6 +91,23 @@ MeshData GearMeshGenerator::Generate(float pitch_radius, int num_teeth, float pr
         profile_points.push_back(glm::vec2(root_radius * std::cos(end_angle), root_radius * std::sin(end_angle)));
     }
 
+    auto TransformPoint = [&](const glm::vec2& p, float z) -> glm::vec2 {
+        glm::vec2 res = p;
+        if (gear_type == GearType::Helical) {
+            float twist = param0 * 3.14159265359f / 180.0f;
+            float angle = (z / pitch_radius) * std::tan(twist);
+            float cosA = std::cos(angle);
+            float sinA = std::sin(angle);
+            res = glm::vec2(p.x * cosA - p.y * sinA, p.x * sinA + p.y * cosA);
+        } else if (gear_type == GearType::Bevel) {
+            float cone_angle = param0 * 3.14159265359f / 180.0f;
+            float scale = 1.0f - (z / pitch_radius) * std::tan(cone_angle);
+            if (scale < 0.1f) scale = 0.1f;
+            res = p * scale;
+        }
+        return res;
+    };
+
     int points_count = (int)profile_points.size();
 
     // 1. Front face
@@ -98,7 +115,8 @@ MeshData GearMeshGenerator::Generate(float pitch_radius, int num_teeth, float pr
     unsigned int center_front_idx = static_cast<unsigned int>(mesh.vertices.size());
     mesh.vertices.push_back({center_front, glm::vec3(0.0f, 0.0f, 1.0f)});
     for (int i = 0; i < points_count; ++i) {
-        mesh.vertices.push_back({glm::vec3(profile_points[i].x, profile_points[i].y, depth), glm::vec3(0.0f, 0.0f, 1.0f)});
+        glm::vec2 tf = TransformPoint(profile_points[i], depth);
+        mesh.vertices.push_back({glm::vec3(tf.x, tf.y, depth), glm::vec3(0.0f, 0.0f, 1.0f)});
     }
     for (int i = 0; i < points_count; ++i) {
         mesh.indices.push_back(center_front_idx);
@@ -111,7 +129,8 @@ MeshData GearMeshGenerator::Generate(float pitch_radius, int num_teeth, float pr
     unsigned int center_back_idx = static_cast<unsigned int>(mesh.vertices.size());
     mesh.vertices.push_back({center_back, glm::vec3(0.0f, 0.0f, -1.0f)});
     for (int i = 0; i < points_count; ++i) {
-        mesh.vertices.push_back({glm::vec3(profile_points[i].x, profile_points[i].y, -depth), glm::vec3(0.0f, 0.0f, -1.0f)});
+        glm::vec2 tb = TransformPoint(profile_points[i], -depth);
+        mesh.vertices.push_back({glm::vec3(tb.x, tb.y, -depth), glm::vec3(0.0f, 0.0f, -1.0f)});
     }
     for (int i = 0; i < points_count; ++i) {
         mesh.indices.push_back(center_back_idx);
@@ -122,10 +141,15 @@ MeshData GearMeshGenerator::Generate(float pitch_radius, int num_teeth, float pr
     // 3. Rim
     for (int i = 0; i < points_count; ++i) {
         int next_i = (i + 1) % points_count;
-        glm::vec3 v0(profile_points[i].x, profile_points[i].y, depth);
-        glm::vec3 v1(profile_points[i].x, profile_points[i].y, -depth);
-        glm::vec3 v2(profile_points[next_i].x, profile_points[next_i].y, depth);
-        glm::vec3 v3(profile_points[next_i].x, profile_points[next_i].y, -depth);
+        glm::vec2 tf0 = TransformPoint(profile_points[i], depth);
+        glm::vec2 tb0 = TransformPoint(profile_points[i], -depth);
+        glm::vec2 tf1 = TransformPoint(profile_points[next_i], depth);
+        glm::vec2 tb1 = TransformPoint(profile_points[next_i], -depth);
+
+        glm::vec3 v0(tf0.x, tf0.y, depth);
+        glm::vec3 v1(tb0.x, tb0.y, -depth);
+        glm::vec3 v2(tf1.x, tf1.y, depth);
+        glm::vec3 v3(tb1.x, tb1.y, -depth);
         
         glm::vec3 edge1 = v2 - v0;
         glm::vec3 edge2 = v1 - v0;
@@ -147,6 +171,7 @@ MeshData GearMeshGenerator::Generate(float pitch_radius, int num_teeth, float pr
     }
     
     return mesh;
+
 }
 
 } // namespace gear_engine

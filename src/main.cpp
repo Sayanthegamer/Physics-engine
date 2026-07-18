@@ -204,6 +204,7 @@ int main(int argc, char** argv) {
                     if (new_handle.IsValid()) {
                         uint32_t i = new_handle.index;
                         engine_state.GetBodies().gear_types[i] = ui_context.GetSelectedGearType();
+                        engine_state.GetBodies().gear_params_0[i] = ui_context.GetGearParam0();
                         engine_state.GetBodies().positions[i] = placement_pos;
                         engine_state.GetBodies().radii[i] = next_radius;
                         if (is_snapped) {
@@ -276,6 +277,13 @@ int main(int argc, char** argv) {
         int current_gear_type = (int)ui_context.GetSelectedGearType();
         if (ImGui::Combo("Next Gear Type", &current_gear_type, gear_type_names, IM_ARRAYSIZE(gear_type_names))) {
             ui_context.SetSelectedGearType((gear_engine::GearType)current_gear_type);
+        }
+        if (ui_context.GetSelectedGearType() == gear_engine::GearType::Helical) {
+            float param0 = ui_context.GetGearParam0();
+            if (ImGui::SliderFloat("Helix Angle", &param0, 10.0f, 60.0f)) ui_context.SetGearParam0(param0);
+        } else if (ui_context.GetSelectedGearType() == gear_engine::GearType::Bevel) {
+            float param0 = ui_context.GetGearParam0();
+            if (ImGui::SliderFloat("Pitch Angle", &param0, 10.0f, 80.0f)) ui_context.SetGearParam0(param0);
         }
         ImGui::Separator();
         ImGui::Text("Controls:\n"
@@ -371,7 +379,7 @@ int main(int argc, char** argv) {
             if (env.IsWireframeEnabled()) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
             float p_angle = is_snapped ? engine_state.GetBodies().pressure_angles[snap_target] : 20.0f;
             float p_clearance = is_snapped ? engine_state.GetBodies().clearances[snap_target] : 0.1f;
-            renderer.DrawPreviewGear(placement_pos, next_radius, preview_phi, p_angle, p_clearance, is_snapped, camera, display_w, display_h);
+            renderer.DrawPreviewGear(placement_pos, next_radius, preview_phi, p_angle, p_clearance, ui_context.GetSelectedGearType(), ui_context.GetGearParam0(), is_snapped, camera, display_w, display_h);
             if (env.IsWireframeEnabled()) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
         

@@ -5,14 +5,14 @@
   - [x] Write failing test for new gear type UI instancing and event emission.
   - [x] Implement UI buttons/dropdowns in the main toolbar using ImGui.
   - [x] Ensure tests pass when UI components correctly dispatch creation events.
-- [~] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: Procedural SDF Mesh Generation (Helical & Bevel)
-- [ ] Task: Implement SDF generation for Helical and Bevel gears
-  - [ ] Write failing test for SDF evaluation of Helical and Bevel geometries.
-  - [ ] Implement the shader/SDF functions for Helical and Bevel gears, ensuring CAD-style visual fidelity.
-  - [ ] Ensure SDF generation tests pass.
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement SDF generation for Helical and Bevel gears
+  - [x] Write failing test for SDF evaluation of Helical and Bevel geometries.
+  - [x] Implement the shader/SDF functions for Helical and Bevel gears, ensuring CAD-style visual fidelity.
+  - [x] Ensure SDF generation tests pass.
+- [~] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: Procedural SDF Mesh Generation (Worm, Rack, Internal)
 - [ ] Task: Implement SDF generation for Worm, Rack, and Internal gears

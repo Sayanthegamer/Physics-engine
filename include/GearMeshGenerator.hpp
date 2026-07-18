@@ -4,6 +4,8 @@
 #include <vector>
 #include <glm/glm.hpp>
 
+#include "GearEngine.hpp"
+
 namespace gear_engine {
 
 namespace involute {
@@ -24,7 +26,7 @@ class GearMeshGenerator {
 public:
     GearMeshGenerator() = default;
 
-    MeshData Generate(float pitch_radius, int num_teeth, float pressure_angle = 20.0f, float clearance = 0.1f);
+    MeshData Generate(float pitch_radius, int num_teeth, float pressure_angle = 20.0f, float clearance = 0.1f, GearType gear_type = GearType::Spur, float param0 = 0.0f);
 };
 
 } // namespace gear_engine
