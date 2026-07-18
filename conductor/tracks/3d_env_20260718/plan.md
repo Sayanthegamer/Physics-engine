@@ -5,7 +5,7 @@
 - [x] Task: Implement `GearMeshGenerator` to procedurally build cylinder/teeth vertices and indices
 - [x] Task: Update the engine rendering loop to support drawing the 3D meshes for gears
 - [x] Task: Map the physics `GearConstraint` / `RigidBody` transforms to the 3D gear meshes
-- [ ] Task: Refactor and optimize mesh generation for DOD (Structure of Arrays caching)
+- [x] Task: Refactor and optimize mesh generation for DOD (Structure of Arrays caching)
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: Workspace Environment (Grid & Floor)
