@@ -47,7 +47,7 @@ typedef void (*PFNGLDELETEBUFFERSPROC) (GLsizei n, const GLuint *buffers);
 typedef void (*PFNGLDELETEPROGRAMPROC) (GLuint program);
 // --------------------------------
 
-namespace GearEngine {
+namespace gear_engine {
 
 const char* vertexShaderSource = R"(
 #version 330 core
@@ -407,4 +407,4 @@ private:
     std::vector<glm::vec4> instance_colors_;
 };
 
-} // namespace GearEngine
+} // namespace gear_engine

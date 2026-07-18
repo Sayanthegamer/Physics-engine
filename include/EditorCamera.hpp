@@ -5,7 +5,7 @@
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 
-namespace GearEngine {
+namespace gear_engine {
 
 class EditorCamera {
 public:
@@ -140,4 +140,4 @@ private:
     bool first_mouse_ = true;
 };
 
-} // namespace GearEngine
+} // namespace gear_engine

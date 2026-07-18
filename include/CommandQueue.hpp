@@ -6,7 +6,7 @@
 #include <variant>
 #include <algorithm>
 
-namespace GearEngine {
+namespace gear_engine {
 
 // Deferred command queue structures
 struct AddBodyCommand { 
@@ -87,4 +87,4 @@ private:
     std::vector<CommandVariant> commands_;
 };
 
-} // namespace GearEngine
+} // namespace gear_engine

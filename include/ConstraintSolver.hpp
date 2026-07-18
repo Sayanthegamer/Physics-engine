@@ -4,7 +4,7 @@
 #include <vector>
 #include <glm/glm.hpp>
 
-namespace GearEngine {
+namespace gear_engine {
 
 // Analytical constraints storing just handles to the shared state
 struct GearConstraint {
@@ -131,4 +131,4 @@ private:
     }
 };
 
-} // namespace GearEngine
+} // namespace gear_engine

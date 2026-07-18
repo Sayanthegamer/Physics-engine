@@ -54,13 +54,13 @@ int main(int argc, char** argv) {
     ImGui_ImplOpenGL3_Init("#version 330 core");
 
     // Engine State Initialization
-    GearEngine::EngineState engine_state;
-    GearEngine::ConstraintArrays constraint_arrays;
-    GearEngine::ConstraintSolver solver;
-    GearEngine::CommandQueue command_queue;
+    gear_engine::EngineState engine_state;
+    gear_engine::ConstraintArrays constraint_arrays;
+    gear_engine::ConstraintSolver solver;
+    gear_engine::CommandQueue command_queue;
 
-    GearEngine::EditorCamera camera;
-    GearEngine::DebugRenderer renderer; // Must be initialized AFTER ImGui OpenGL loader setup
+    gear_engine::EditorCamera camera;
+    gear_engine::DebugRenderer renderer; // Must be initialized AFTER ImGui OpenGL loader setup
 
     // Fixed timestep settings
     const float kFixedDt = 1.0f / 60.0f;
@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
                     selected_motor_gear = hovered_gear;
                 } else {
                     // Spawn new gear
-                    GearEngine::EntityHandle new_handle = engine_state.AllocateBody();
+                    gear_engine::EntityHandle new_handle = engine_state.AllocateBody();
                     if (new_handle.IsValid()) {
                         uint32_t i = new_handle.index;
                         engine_state.GetBodies().positions[i] = placement_pos;
@@ -191,7 +191,7 @@ int main(int argc, char** argv) {
                         engine_state.GetBodies().inverse_inertias[i][2][2] = 1.0f / I_zz;
                         
                         if (is_snapped) {
-                            GearEngine::GearConstraint gc;
+                            gear_engine::GearConstraint gc;
                             gc.body_a = new_handle;
                             gc.body_b = {(uint32_t)snap_target, engine_state.GetGeneration(snap_target)};
                             // FIX: Ratio must be Target_Radius / New_Radius 
@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
             }
             else if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
                 if (grabbed_gear != -1 && is_snapped) {
-                    GearEngine::GearConstraint gc;
+                    gear_engine::GearConstraint gc;
                     gc.body_a = {(uint32_t)grabbed_gear, engine_state.GetGeneration(grabbed_gear)};
                     gc.body_b = {(uint32_t)snap_target, engine_state.GetGeneration(snap_target)};
                     // FIX: Ratio is Target_Radius / Grabbed_Radius
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
             else if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
                 int target_to_delete = hovered_gear != -1 ? hovered_gear : (selected_motor_gear != 0 ? selected_motor_gear : -1);
                 if (target_to_delete != -1) {
-                    GearEngine::RemoveBodyCommand cmd;
+                    gear_engine::RemoveBodyCommand cmd;
                     cmd.handle = {(uint32_t)target_to_delete, engine_state.GetGeneration(target_to_delete)};
                     command_queue.PushCommand(cmd);
                     if (selected_motor_gear == (uint32_t)target_to_delete) selected_motor_gear = 0;
@@ -233,7 +233,7 @@ int main(int argc, char** argv) {
         for (uint32_t i = 1; i < engine_state.GetCapacity(); ++i) {
             if (engine_state.IsIndexActive(i)) active_count++;
         }
-        ImGui::Text("Active Bodies: %d (Max %d)", active_count, GearEngine::kMaxBodies); 
+        ImGui::Text("Active Bodies: %d (Max %d)", active_count, gear_engine::kMaxBodies); 
         
         ImGui::Separator();
         ImGui::Text("Controls:");
@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
         if (ImGui::Button("Clear All")) {
             for (uint32_t i = 1; i < engine_state.GetCapacity(); ++i) {
                 if (engine_state.IsIndexActive(i)) {
-                    GearEngine::RemoveBodyCommand cmd;
+                    gear_engine::RemoveBodyCommand cmd;
                     cmd.handle = {i, engine_state.GetGeneration(i)};
                     command_queue.PushCommand(cmd);
                 }
@@ -271,7 +271,7 @@ int main(int argc, char** argv) {
                     }
                 }
                 if (!found) {
-                    GearEngine::MotorConstraint mc;
+                    gear_engine::MotorConstraint mc;
                     mc.body = {(uint32_t)selected_motor_gear, engine_state.GetGeneration(selected_motor_gear)};
                     mc.target_speed = motor_speed;
                     constraint_arrays.motors.push_back(mc);

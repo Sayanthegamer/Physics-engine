@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-namespace GearEngine {
+namespace gear_engine {
 
 // Use compile-time constant as requested
 constexpr uint32_t kMaxBodies = 8192;
@@ -81,4 +81,4 @@ private:
     uint32_t next_free_index_ = 1; // 0 reserved as invalid handle
 };
 
-} // namespace GearEngine
+} // namespace gear_engine
