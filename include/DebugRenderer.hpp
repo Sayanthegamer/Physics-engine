@@ -5,6 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
 #include <iostream>
+#include <unordered_map>
 
 #include "GearEngine.hpp"
 #include "EditorCamera.hpp"
@@ -203,17 +204,14 @@ public:
 
             glm::mat4 model = glm::translate(glm::mat4(1.0f), bodies.positions[i]);
             model = model * glm::mat4_cast(bodies.rotations[i]);
-            // Do NOT scale by radius, GearMeshGenerator builds it at the correct radius.
+            // Do scale by radius, GearMeshGenerator meshes are cached at radius 1.0f.
+            model = glm::scale(model, glm::vec3(bodies.radii[i]));
             
             glm::vec4 color = ((int)i == highlighted_gear) ? glm::vec4(1.0f, 1.0f, 0.2f, 1.0f) : glm::vec4(0.26f, 0.70f, 0.98f, 1.0f);
             
             int teeth_count = std::max(4, (int)std::round(bodies.radii[i] * 4.0f));
             
-            // Generate mesh on the fly (will be optimized in DOD step)
-            GearMeshGenerator gen;
-            MeshData mesh = gen.Generate(bodies.radii[i], teeth_count);
-            
-            DrawMesh(mesh, model, color, camera, width, height);
+            DrawCachedMesh(teeth_count, model, color, camera, width, height);
         }
 
         // --- Draw Constraints (Lines) ---
@@ -244,41 +242,49 @@ public:
         if (width == 0 || height == 0 || !glUseProgram) return;
 
         glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
-        // Do NOT scale, generate at exact radius
+        model = glm::scale(model, glm::vec3(radius));
         
         glm::vec4 color = is_snapped ? glm::vec4(0.2f, 1.0f, 0.2f, 0.8f) : glm::vec4(1.0f, 1.0f, 1.0f, 0.5f);
         int teeth_count = std::max(4, (int)std::round(radius * 4.0f));
         
-        GearMeshGenerator gen;
-        MeshData mesh = gen.Generate(radius, teeth_count);
-        
-        DrawMesh(mesh, model, color, camera, width, height);
+        DrawCachedMesh(teeth_count, model, color, camera, width, height);
     }
 
-    void DrawMesh(const MeshData& mesh, const glm::mat4& model, const glm::vec4& color, const EditorCamera& camera, int width, int height) {
+    void DrawCachedMesh(int teeth_count, const glm::mat4& model, const glm::vec4& color, const EditorCamera& camera, int width, int height) {
         if (width == 0 || height == 0 || !glUseProgram) return;
 
-        // For simplicity in this step, we'll build VAO/VBO on the fly.
-        // We will optimize this in the DOD caching step later.
-        GLuint vao, vbo, ebo;
-        glGenVertexArrays(1, &vao);
-        glGenBuffers(1, &vbo);
-        glGenBuffers(1, &ebo);
+        auto it = mesh_cache_.find(teeth_count);
+        if (it == mesh_cache_.end()) {
+            GearMeshGenerator gen;
+            MeshData mesh = gen.Generate(1.0f, teeth_count);
+            
+            CachedMesh gl_mesh;
+            glGenVertexArrays(1, &gl_mesh.vao);
+            glGenBuffers(1, &gl_mesh.vbo);
+            glGenBuffers(1, &gl_mesh.ebo);
 
-        glBindVertexArray(vao);
+            glBindVertexArray(gl_mesh.vao);
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(Vertex), mesh.vertices.data(), GL_STATIC_DRAW);
+            glBindBuffer(GL_ARRAY_BUFFER, gl_mesh.vbo);
+            glBufferData(GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(Vertex), mesh.vertices.data(), GL_STATIC_DRAW);
 
-        // GL_ELEMENT_ARRAY_BUFFER = 0x8893
-        glBindBuffer(0x8893, ebo);
-        glBufferData(0x8893, mesh.indices.size() * sizeof(unsigned int), mesh.indices.data(), GL_STATIC_DRAW);
+            glBindBuffer(0x8893, gl_mesh.ebo);
+            glBufferData(0x8893, mesh.indices.size() * sizeof(unsigned int), mesh.indices.data(), GL_STATIC_DRAW);
 
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+            glEnableVertexAttribArray(0);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
 
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+            glEnableVertexAttribArray(1);
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+
+            glBindVertexArray(0);
+            
+            gl_mesh.index_count = (GLsizei)mesh.indices.size();
+            mesh_cache_[teeth_count] = gl_mesh;
+            it = mesh_cache_.find(teeth_count);
+        }
+
+        const CachedMesh& gl_mesh = it->second;
 
         glUseProgram(mesh_shader_program_);
         
@@ -291,15 +297,11 @@ public:
         
         glUniform4fv(glGetUniformLocation(mesh_shader_program_, "objectColor"), 1, glm::value_ptr(color));
 
-        // glDrawElements is standard OpenGL 1.1
-        glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, 0);
+        glBindVertexArray(gl_mesh.vao);
+        glDrawElements(GL_TRIANGLES, gl_mesh.index_count, GL_UNSIGNED_INT, 0);
 
         glBindVertexArray(0);
         glUseProgram(0);
-
-        glDeleteVertexArrays(1, &vao);
-        glDeleteBuffers(1, &vbo);
-        glDeleteBuffers(1, &ebo);
     }
 
 private:
@@ -473,6 +475,14 @@ private:
 
     std::vector<glm::mat4> instance_matrices_;
     std::vector<glm::vec4> instance_colors_;
+    
+    struct CachedMesh {
+        GLuint vao = 0;
+        GLuint vbo = 0;
+        GLuint ebo = 0;
+        GLsizei index_count = 0;
+    };
+    std::unordered_map<int, CachedMesh> mesh_cache_;
 };
 
 } // namespace gear_engine
