@@ -20,4 +20,7 @@
 - [x] Task: Create a new ImGui "View" settings window in `EditorCamera` or a dedicated UI class
 - [x] Task: Wire the UI toggles to the respective rendering passes (Grid, Floor, Wireframe mode)
 - [x] Task: Validate that UI captures mouse/keyboard correctly without interacting with the scene
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions 8916f85
