@@ -52,6 +52,33 @@ namespace physics_utils {
         return -ratio; // Default fallback
     }
 
+    // Determines if two gears can physically mesh based on their type and parameters (e.g. Helical angles)
+    inline bool AreGearsCompatible(GearType type_a, float param0_a, GearType type_b, float param0_b) {
+        if (type_a == GearType::Helical || type_b == GearType::Helical) {
+            if (type_a != type_b) return false; // Helical only meshes with Helical
+            
+            // For parallel helical gears, angles must be equal and opposite
+            float sum = param0_a + param0_b;
+            if (std::abs(sum) > 0.01f) {
+                return false;
+            }
+            return true;
+        }
+        
+        if (type_a == GearType::Bevel || type_b == GearType::Bevel) {
+            if (type_a != type_b) return false; // Bevels only mesh with bevels
+            return true;
+        }
+        
+        if (type_a == GearType::Worm || type_b == GearType::Worm) {
+            if (type_a == GearType::Worm && type_b == GearType::Spur) return true;
+            if (type_a == GearType::Spur && type_b == GearType::Worm) return true;
+            return false;
+        }
+        
+        return true;
+    }
+
 } // namespace physics_utils
 } // namespace gear_engine
 

@@ -178,6 +178,15 @@ MeshData GearMeshGenerator::Generate(float pitch_radius, int num_teeth, float pr
     float base_radius  = pitch_radius * std::cos(glm::radians(pressure_angle));
     
     float depth = 0.5f;
+    int z_slices = 1;
+    if (gear_type == GearType::Worm) {
+        depth = pitch_radius * 3.0f; // Long cylinder
+        z_slices = 30; // Lots of slices for the thread
+    } else if (gear_type == GearType::Helical) {
+        z_slices = 5; // A few slices for helical
+    } else if (gear_type == GearType::Bevel) {
+        z_slices = 10; // Subdivide bevel for better lighting/shape
+    }
 
     // We generate the gear outline as a series of 2D points, then extrude it.
     std::vector<glm::vec2> profile_points;
@@ -195,7 +204,7 @@ MeshData GearMeshGenerator::Generate(float pitch_radius, int num_teeth, float pr
         t_max = std::sqrt((outer_radius / base_radius) * (outer_radius / base_radius) - 1.0f);
     }
     
-    int involute_segments = 20; 
+    int involute_segments = 10; // Reduce from 20 to keep vertex count reasonable with slices
 
     for (int i = 0; i < num_teeth; ++i) {
         float center_angle = i * pitch_angle;
@@ -289,36 +298,41 @@ MeshData GearMeshGenerator::Generate(float pitch_radius, int num_teeth, float pr
         mesh.indices.push_back(center_back_idx + 1 + i);
     }
 
-    // 3. Rim
-    for (int i = 0; i < points_count; ++i) {
-        int next_i = (i + 1) % points_count;
-        glm::vec2 tf0 = TransformPoint(profile_points[i], depth);
-        glm::vec2 tb0 = TransformPoint(profile_points[i], -depth);
-        glm::vec2 tf1 = TransformPoint(profile_points[next_i], depth);
-        glm::vec2 tb1 = TransformPoint(profile_points[next_i], -depth);
-
-        glm::vec3 v0(tf0.x, tf0.y, depth);
-        glm::vec3 v1(tb0.x, tb0.y, -depth);
-        glm::vec3 v2(tf1.x, tf1.y, depth);
-        glm::vec3 v3(tb1.x, tb1.y, -depth);
+    // 3. Rim (Subdivided)
+    for (int s = 0; s < z_slices; ++s) {
+        float z0 = depth - (s * 2.0f * depth) / z_slices;
+        float z1 = depth - ((s + 1) * 2.0f * depth) / z_slices;
         
-        glm::vec3 edge1 = v2 - v0;
-        glm::vec3 edge2 = v1 - v0;
-        glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
-        
-        unsigned int start_idx = static_cast<unsigned int>(mesh.vertices.size());
-        mesh.vertices.push_back({v0, normal});
-        mesh.vertices.push_back({v1, normal});
-        mesh.vertices.push_back({v2, normal});
-        mesh.vertices.push_back({v3, normal});
-        
-        mesh.indices.push_back(start_idx);
-        mesh.indices.push_back(start_idx + 1);
-        mesh.indices.push_back(start_idx + 2);
-        
-        mesh.indices.push_back(start_idx + 1);
-        mesh.indices.push_back(start_idx + 3);
-        mesh.indices.push_back(start_idx + 2);
+        for (int i = 0; i < points_count; ++i) {
+            int next_i = (i + 1) % points_count;
+            glm::vec2 tf0 = TransformPoint(profile_points[i], z0);
+            glm::vec2 tb0 = TransformPoint(profile_points[i], z1);
+            glm::vec2 tf1 = TransformPoint(profile_points[next_i], z0);
+            glm::vec2 tb1 = TransformPoint(profile_points[next_i], z1);
+    
+            glm::vec3 v0(tf0.x, tf0.y, z0);
+            glm::vec3 v1(tb0.x, tb0.y, z1);
+            glm::vec3 v2(tf1.x, tf1.y, z0);
+            glm::vec3 v3(tb1.x, tb1.y, z1);
+            
+            glm::vec3 edge1 = v2 - v0;
+            glm::vec3 edge2 = v1 - v0;
+            glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
+            
+            unsigned int start_idx = static_cast<unsigned int>(mesh.vertices.size());
+            mesh.vertices.push_back({v0, normal});
+            mesh.vertices.push_back({v1, normal});
+            mesh.vertices.push_back({v2, normal});
+            mesh.vertices.push_back({v3, normal});
+            
+            mesh.indices.push_back(start_idx);
+            mesh.indices.push_back(start_idx + 1);
+            mesh.indices.push_back(start_idx + 2);
+            
+            mesh.indices.push_back(start_idx + 1);
+            mesh.indices.push_back(start_idx + 3);
+            mesh.indices.push_back(start_idx + 2);
+        }
     }
     
     return mesh;

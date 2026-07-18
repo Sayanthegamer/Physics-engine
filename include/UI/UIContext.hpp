@@ -4,6 +4,12 @@
 
 namespace gear_engine {
 
+enum class GizmoMode {
+    Translate,
+    Rotate,
+    Scale
+};
+
 class UIContext {
 public:
     UIContext() = default;
@@ -23,10 +29,22 @@ public:
 
     float GetGearParam0() const { return gear_param0_; }
     void SetGearParam0(float p) { gear_param0_ = p; }
+    
+    // Gizmo State
+    GizmoMode GetGizmoMode() const { return gizmo_mode_; }
+    void SetGizmoMode(GizmoMode mode) { gizmo_mode_ = mode; }
+    
+    // Object Selection
+    bool HasSelectedObject() const { return selected_object_id_ != 0; }
+    uint32_t GetSelectedObjectId() const { return selected_object_id_; }
+    void SetSelectedObjectId(uint32_t id) { selected_object_id_ = id; }
+    void ClearSelection() { selected_object_id_ = 0; }
 
 private:
     GearType selected_gear_type_ = GearType::Spur;
     float gear_param0_ = 30.0f;
+    GizmoMode gizmo_mode_ = GizmoMode::Translate;
+    uint32_t selected_object_id_ = 0;
 };
 
 } // namespace gear_engine

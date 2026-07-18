@@ -49,3 +49,31 @@ TEST(UIContextTest, SetsDefaultGearParam0WhenTypeChanges) {
     ui_ctx.SetGearParam0(25.0f);
     EXPECT_EQ(ui_ctx.GetGearParam0(), 25.0f);
 }
+
+TEST(UIContextTest, GizmoStateManagement) {
+    UIContext ui_ctx;
+    
+    // Default mode should be Translate
+    EXPECT_EQ(ui_ctx.GetGizmoMode(), GizmoMode::Translate);
+    
+    ui_ctx.SetGizmoMode(GizmoMode::Rotate);
+    EXPECT_EQ(ui_ctx.GetGizmoMode(), GizmoMode::Rotate);
+    
+    ui_ctx.SetGizmoMode(GizmoMode::Scale);
+    EXPECT_EQ(ui_ctx.GetGizmoMode(), GizmoMode::Scale);
+}
+
+TEST(UIContextTest, ObjectSelectionManagement) {
+    UIContext ui_ctx;
+    
+    // No object selected by default
+    EXPECT_FALSE(ui_ctx.HasSelectedObject());
+    EXPECT_EQ(ui_ctx.GetSelectedObjectId(), 0); // Assuming 0 is invalid/null ID
+    
+    ui_ctx.SetSelectedObjectId(42);
+    EXPECT_TRUE(ui_ctx.HasSelectedObject());
+    EXPECT_EQ(ui_ctx.GetSelectedObjectId(), 42);
+    
+    ui_ctx.ClearSelection();
+    EXPECT_FALSE(ui_ctx.HasSelectedObject());
+}

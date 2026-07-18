@@ -65,3 +65,20 @@ TEST(PhysicsUtilsTest, CalculatesDiverseGearTransmissionRatios) {
     // Rack to Pinion (Linear to Rotational)
     EXPECT_FLOAT_EQ(CalculateTransmissionRatio(gear_engine::GearType::Rack, gear_engine::GearType::Spur, 0.0f, 2.0f), 0.5f);
 }
+
+TEST(PhysicsUtilsTest, HelicalGearsRequireOppositeAngles) {
+    // 30 and -30 should be compatible
+    EXPECT_TRUE(AreGearsCompatible(gear_engine::GearType::Helical, 30.0f, gear_engine::GearType::Helical, -30.0f));
+    
+    // 30 and 30 should not be compatible
+    EXPECT_FALSE(AreGearsCompatible(gear_engine::GearType::Helical, 30.0f, gear_engine::GearType::Helical, 30.0f));
+    
+    // 30 and -45 should not be compatible
+    EXPECT_FALSE(AreGearsCompatible(gear_engine::GearType::Helical, 30.0f, gear_engine::GearType::Helical, -45.0f));
+    
+    // Spur and Helical should not be compatible
+    EXPECT_FALSE(AreGearsCompatible(gear_engine::GearType::Spur, 0.0f, gear_engine::GearType::Helical, 30.0f));
+    
+    // Spur and Spur should be compatible
+    EXPECT_TRUE(AreGearsCompatible(gear_engine::GearType::Spur, 0.0f, gear_engine::GearType::Spur, 0.0f));
+}
