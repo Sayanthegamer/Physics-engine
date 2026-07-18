@@ -172,6 +172,74 @@ void main()
 }
 )";
 
+const char* gridVertexShaderSource = R"(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 view;
+uniform mat4 projection;
+
+out vec3 nearPoint;
+out vec3 farPoint;
+
+// Unproject screen coordinates to world coordinates
+vec3 UnprojectPoint(float x, float y, float z, mat4 view, mat4 projection) {
+    mat4 viewInv = inverse(view);
+    mat4 projInv = inverse(projection);
+    vec4 unprojectedPoint =  viewInv * projInv * vec4(x, y, z, 1.0);
+    return unprojectedPoint.xyz / unprojectedPoint.w;
+}
+
+void main()
+{
+    vec3 p = aPos;
+    nearPoint = UnprojectPoint(p.x, p.y, 0.0, view, projection);
+    farPoint = UnprojectPoint(p.x, p.y, 1.0, view, projection);
+    gl_Position = vec4(p, 1.0);
+}
+)";
+
+const char* gridFragmentShaderSource = R"(
+#version 330 core
+out vec4 FragColor;
+
+in vec3 nearPoint;
+in vec3 farPoint;
+
+uniform mat4 view;
+uniform mat4 projection;
+
+void main()
+{
+    float t = -nearPoint.y / (farPoint.y - nearPoint.y);
+    if (t < 0.0) discard;
+    
+    vec3 fragPos3D = nearPoint + t * (farPoint - nearPoint);
+    
+    // Grid pattern
+    float scale = 1.0;
+    vec2 coord = fragPos3D.xz * scale;
+    vec2 derivative = fwidth(coord);
+    vec2 grid = abs(fract(coord - 0.5) - 0.5) / derivative;
+    float line = min(grid.x, grid.y);
+    
+    // Fade out in distance
+    float linearDepth = length(fragPos3D - inverse(view)[3].xyz);
+    float fading = max(0.0, (100.0 - linearDepth) / 100.0);
+    
+    vec4 color = vec4(0.8, 0.8, 0.8, 1.0 - min(line, 1.0));
+    color.a *= fading * 0.5; // Overall transparency
+    
+    if (color.a < 0.01) discard;
+    
+    FragColor = color;
+    
+    // Calculate exact depth so it interacts with 3D objects properly
+    vec4 clip_space_pos = projection * view * vec4(fragPos3D, 1.0);
+    gl_FragDepth = (clip_space_pos.z / clip_space_pos.w) * 0.5 + 0.5;
+}
+)";
+
 class DebugRenderer {
 public:
     DebugRenderer() {
@@ -179,6 +247,7 @@ public:
         CompileShaders();
         SetupCircleGeometry();
         SetupLineGeometry();
+        SetupGridGeometry();
         
         instance_matrices_.reserve(kMaxBodies);
         instance_colors_.reserve(kMaxBodies);
@@ -195,6 +264,10 @@ public:
         if (glDeleteBuffers) glDeleteBuffers(1, &line_vbo_);
         if (glDeleteProgram) glDeleteProgram(line_shader_program_);
         
+        if (glDeleteVertexArrays) glDeleteVertexArrays(1, &grid_vao_);
+        if (glDeleteBuffers) glDeleteBuffers(1, &grid_vbo_);
+        if (glDeleteProgram) glDeleteProgram(grid_shader_program_);
+        
         if (glDeleteProgram) glDeleteProgram(mesh_shader_program_);
     }
 
@@ -207,6 +280,10 @@ public:
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = camera.GetProjectionMatrix((float)width / (float)height);
 
+        // Draw grid first (with depth testing enabled but writing usually doesn't matter for transparent grid, 
+        // though our grid shader writes gl_FragDepth so it works anywhere).
+        // Actually best to draw opaque objects first, then grid for transparency.
+        
         for (uint32_t i = 1; i < cap; ++i) {
             if (!state.IsIndexActive(i)) continue;
 
@@ -244,6 +321,59 @@ public:
                 glUseProgram(0);
             }
         }
+    }
+
+    void DrawGrid(const EditorCamera& camera, int width, int height) {
+        if (width == 0 || height == 0 || !glUseProgram) return;
+        
+        // We need depth testing but disable depth writing for the transparent grid
+        // to blend properly with the opaque geometry behind it (which we already drew).
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE); // Disable writing to depth buffer
+
+        glUseProgram(grid_shader_program_);
+        
+        glm::mat4 view = camera.GetViewMatrix();
+        glm::mat4 projection = camera.GetProjectionMatrix((float)width / (float)height);
+
+        glUniformMatrix4fv(glGetUniformLocation(grid_shader_program_, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(grid_shader_program_, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+        glBindVertexArray(grid_vao_);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+        glUseProgram(0);
+        
+        glDepthMask(GL_TRUE); // Re-enable depth writing
+        glDisable(GL_BLEND);
+    }
+
+    void DrawFloor(const EditorCamera& camera, int width, int height) {
+        if (width == 0 || height == 0 || !glUseProgram) return;
+
+        glUseProgram(mesh_shader_program_);
+
+        glm::mat4 view = camera.GetViewMatrix();
+        glm::mat4 projection = camera.GetProjectionMatrix((float)width / (float)height);
+
+        // Floor at y = -0.5 to not perfectly overlap with z-fighting on grid (which is at y=0)
+        // Wait, gears are at y=0. So floor should be slightly below, e.g. -0.05
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.05f, 0.0f));
+        model = glm::scale(model, glm::vec3(50.0f)); // 50x50 floor
+
+        glUniformMatrix4fv(glGetUniformLocation(mesh_shader_program_, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(glGetUniformLocation(mesh_shader_program_, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(mesh_shader_program_, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+        glm::vec4 floorColor(0.2f, 0.2f, 0.25f, 1.0f); // Dark slate floor
+        glUniform4fv(glGetUniformLocation(mesh_shader_program_, "objectColor"), 1, glm::value_ptr(floorColor));
+
+        glBindVertexArray(grid_vao_); // Reuse the quad geometry
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+
+        glUseProgram(0);
     }
 
     void DrawPreviewGear(glm::vec3 position, float radius, bool is_snapped, const EditorCamera& camera, int width, int height) {
@@ -357,6 +487,23 @@ private:
         
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
+        
+        // Compile Grid Shader
+        GLuint gvShader = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(gvShader, 1, &gridVertexShaderSource, NULL);
+        glCompileShader(gvShader);
+        
+        GLuint gfShader = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(gfShader, 1, &gridFragmentShaderSource, NULL);
+        glCompileShader(gfShader);
+        
+        grid_shader_program_ = glCreateProgram();
+        glAttachShader(grid_shader_program_, gvShader);
+        glAttachShader(grid_shader_program_, gfShader);
+        glLinkProgram(grid_shader_program_);
+        
+        glDeleteShader(gvShader);
+        glDeleteShader(gfShader);
     }
 
     void SetupCircleGeometry() {
@@ -445,6 +592,48 @@ private:
         glDeleteShader(mfShader);
     }
 
+    void SetupGridGeometry() {
+        if (!glGenVertexArrays) return;
+        
+        // Full screen quad
+        std::vector<glm::vec3> grid_vertices = {
+            {-1.0f, 0.0f, -1.0f},
+            { 1.0f, 0.0f, -1.0f},
+            {-1.0f, 0.0f,  1.0f},
+            { 1.0f, 0.0f,  1.0f},
+            {-1.0f, 0.0f,  1.0f},
+            { 1.0f, 0.0f, -1.0f}
+        };
+
+        glGenVertexArrays(1, &grid_vao_);
+        glGenBuffers(1, &grid_vbo_);
+        
+        glBindVertexArray(grid_vao_);
+        glBindBuffer(GL_ARRAY_BUFFER, grid_vbo_);
+        glBufferData(GL_ARRAY_BUFFER, grid_vertices.size() * sizeof(glm::vec3), grid_vertices.data(), GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+        
+        // Setup normals for the floor quad to be pointing UP
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0); // We'll just disable normal array when drawing grid/floor, or provide dummy data. 
+        // Actually, mesh shader uses location 1 for normals. Since we reuse grid_vao_ for floor (which uses mesh shader),
+        // we should provide normal data.
+        
+        std::vector<glm::vec3> grid_normals = {
+            {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f},
+            {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}
+        };
+        
+        GLuint grid_normal_vbo;
+        glGenBuffers(1, &grid_normal_vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, grid_normal_vbo);
+        glBufferData(GL_ARRAY_BUFFER, grid_normals.size() * sizeof(glm::vec3), grid_normals.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+        
+        glBindVertexArray(0);
+    }
+
     // Function pointers
     PFNGLGENVERTEXARRAYSPROC glGenVertexArrays = nullptr;
     PFNGLBINDVERTEXARRAYPROC glBindVertexArray = nullptr;
@@ -477,6 +666,9 @@ private:
     GLuint circle_vao_ = 0, circle_vbo_ = 0;
     GLuint instance_matrix_vbo_ = 0, instance_color_vbo_ = 0;
     int circle_vertex_count_ = 0;
+    
+    GLuint grid_shader_program_ = 0;
+    GLuint grid_vao_ = 0, grid_vbo_ = 0;
     
     GLuint line_shader_program_ = 0;
     GLuint line_vao_ = 0, line_vbo_ = 0;

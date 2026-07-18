@@ -12,6 +12,7 @@
 #include "../include/UI/Theme.hpp"
 #include "../include/EditorCamera.hpp"
 #include "../include/DebugRenderer.hpp"
+#include "../include/WorkspaceEnvironment.hpp"
 
 // Standard main signature
 int main(int argc, char** argv) {
@@ -58,6 +59,7 @@ int main(int argc, char** argv) {
     gear_engine::ConstraintArrays constraint_arrays;
     gear_engine::ConstraintSolver solver;
     gear_engine::CommandQueue command_queue;
+    gear_engine::WorkspaceEnvironment env;
 
     gear_engine::EditorCamera camera;
     gear_engine::DebugRenderer renderer; // Must be initialized AFTER ImGui OpenGL loader setup
@@ -243,6 +245,15 @@ int main(int argc, char** argv) {
         ImGui::BulletText("Scroll Wheel: Resize Brush");
         ImGui::Separator();
         
+        ImGui::Text("View Settings:");
+        bool grid_en = env.IsGridEnabled();
+        if (ImGui::Checkbox("Show Grid", &grid_en)) env.SetGridEnabled(grid_en);
+        ImGui::SameLine();
+        bool floor_en = env.IsFloorEnabled();
+        if (ImGui::Checkbox("Show Floor", &floor_en)) env.SetFloorEnabled(floor_en);
+        
+        ImGui::Separator();
+        
         if (ImGui::Button("Clear All")) {
             for (uint32_t i = 1; i < engine_state.GetCapacity(); ++i) {
                 if (engine_state.IsIndexActive(i)) {
@@ -287,11 +298,23 @@ int main(int argc, char** argv) {
         ImGui::Render();
         glViewport(0, 0, display_w, display_h);
         glClearColor(0.04f, 0.04f, 0.04f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Ensure depth is cleared
+        glEnable(GL_DEPTH_TEST);
         
-        // Draw Debug Renderer
+        // 1. Draw solid floor
+        if (env.IsFloorEnabled()) {
+            renderer.DrawFloor(camera, display_w, display_h);
+        }
+        
+        // 2. Draw opaque gears
         renderer.Draw(engine_state, constraint_arrays, camera, display_w, display_h, grabbed_gear != -1 ? grabbed_gear : selected_motor_gear);
         
+        // 3. Draw transparent infinite grid
+        if (env.IsGridEnabled()) {
+            renderer.DrawGrid(camera, display_w, display_h);
+        }
+        
+        // 4. Draw transparent preview gear
         if (grabbed_gear == -1 && !io.WantCaptureMouse && hovered_gear == -1) {
             renderer.DrawPreviewGear(placement_pos, next_radius, is_snapped, camera, display_w, display_h);
         }
