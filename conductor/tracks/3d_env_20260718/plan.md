@@ -9,7 +9,7 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: Workspace Environment (Grid & Floor)
-- [ ] Task: Write tests for Infinite Grid and Floor configuration states
+- [x] Task: Write tests for Infinite Grid and Floor configuration states
 - [ ] Task: Implement rendering logic for a light infinite grid on the XZ plane
 - [ ] Task: Implement rendering logic for a finite solid floor plane
 - [ ] Task: Integrate grid and floor rendering into the main render pass
