@@ -25,6 +25,8 @@ struct RigidBodySoA {
     float inverse_masses[kMaxBodies];
     glm::mat3 inverse_inertias[kMaxBodies];
     float radii[kMaxBodies]; // Added for visual debugging and collision
+    float pressure_angles[kMaxBodies]; // Involute profile parameter
+    float clearances[kMaxBodies];      // Involute profile parameter
 };
 
 class EngineState {

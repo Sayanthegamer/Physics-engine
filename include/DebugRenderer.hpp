@@ -298,8 +298,10 @@ public:
             glm::vec4 color = ((int)i == highlighted_gear) ? glm::vec4(1.0f, 1.0f, 0.2f, 1.0f) : glm::vec4(0.26f, 0.70f, 0.98f, 1.0f);
             
             int teeth_count = std::max(4, (int)std::round(bodies.radii[i] * 4.0f));
+            float pressure_angle = bodies.pressure_angles[i];
+            float clearance = bodies.clearances[i];
             
-            DrawCachedMesh(teeth_count, model, color, camera, width, height);
+            DrawCachedMesh(teeth_count, pressure_angle, clearance, model, color, camera, width, height);
         }
 
         // --- Draw Constraints (Lines) ---
@@ -380,27 +382,30 @@ public:
         glUseProgram(0);
     }
 
-    void DrawPreviewGear(glm::vec3 position, float radius, bool is_snapped, const EditorCamera& camera, int width, int height) {
+    void DrawPreviewGear(glm::vec3 position, float radius, float phi, float pressure_angle, float clearance, bool is_snapped, const EditorCamera& camera, int width, int height) {
         if (width == 0 || height == 0 || !glUseProgram) return;
 
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(position.x, 0.0f, -position.y));
         model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, phi, glm::vec3(0.0f, 0.0f, 1.0f));
         model = glm::scale(model, glm::vec3(radius));
         
         glm::vec4 color = is_snapped ? glm::vec4(0.2f, 1.0f, 0.2f, 0.8f) : glm::vec4(1.0f, 1.0f, 1.0f, 0.5f);
         int teeth_count = std::max(4, (int)std::round(radius * 4.0f));
         
-        DrawCachedMesh(teeth_count, model, color, camera, width, height);
+        DrawCachedMesh(teeth_count, pressure_angle, clearance, model, color, camera, width, height);
     }
 
-    void DrawCachedMesh(int teeth_count, const glm::mat4& model, const glm::vec4& color, const EditorCamera& camera, int width, int height) {
+    void DrawCachedMesh(int teeth_count, float pressure_angle, float clearance, const glm::mat4& model, const glm::vec4& color, const EditorCamera& camera, int width, int height) {
         if (width == 0 || height == 0 || !glUseProgram) return;
 
-        auto it = mesh_cache_.find(teeth_count);
+        std::string cache_key = std::to_string(teeth_count) + "_" + std::to_string(pressure_angle) + "_" + std::to_string(clearance);
+
+        auto it = mesh_cache_.find(cache_key);
         if (it == mesh_cache_.end()) {
             GearMeshGenerator gen;
-            MeshData mesh = gen.Generate(1.0f, teeth_count);
+            MeshData mesh = gen.Generate(1.0f, teeth_count, pressure_angle, clearance);
             
             CachedMesh gl_mesh;
             glGenVertexArrays(1, &gl_mesh.vao);
@@ -424,8 +429,8 @@ public:
             glBindVertexArray(0);
             
             gl_mesh.index_count = (GLsizei)mesh.indices.size();
-            mesh_cache_[teeth_count] = gl_mesh;
-            it = mesh_cache_.find(teeth_count);
+            mesh_cache_[cache_key] = gl_mesh;
+            it = mesh_cache_.find(cache_key);
         }
 
         const CachedMesh& gl_mesh = it->second;
@@ -688,7 +693,7 @@ private:
         GLuint ebo = 0;
         GLsizei index_count = 0;
     };
-    std::unordered_map<int, CachedMesh> mesh_cache_;
+    std::unordered_map<std::string, CachedMesh> mesh_cache_;
 };
 
 } // namespace gear_engine

@@ -3,74 +3,129 @@
 
 namespace gear_engine {
 
-MeshData GearMeshGenerator::Generate(float radius, int num_teeth) {
+namespace involute {
+    glm::vec2 CalculatePoint(float base_radius, float t) {
+        return glm::vec2(
+            base_radius * (std::cos(t) + t * std::sin(t)),
+            base_radius * (std::sin(t) - t * std::cos(t))
+        );
+    }
+}
+
+MeshData GearMeshGenerator::Generate(float pitch_radius, int num_teeth, float pressure_angle, float clearance) {
     MeshData mesh;
     
-    if (num_teeth <= 0 || radius <= 0.0f) {
+    if (num_teeth <= 0 || pitch_radius <= 0.0f) {
         return mesh;
     }
 
-    // We will build a gear mesh as a triangle fan for the front and back faces, 
-    // and a triangle strip for the rim. For simplicity, we just generate raw triangles.
+    // Basic gear math
+    float module = (2.0f * pitch_radius) / num_teeth;
+    float addendum = module;
+    float dedendum = module + clearance;
+    float outer_radius = pitch_radius + addendum;
+    float root_radius  = pitch_radius - dedendum;
+    float base_radius  = pitch_radius * std::cos(glm::radians(pressure_angle));
     
-    // A gear has teeth. We'll divide the circle into (num_teeth * 4) segments.
-    // Each tooth takes 2 segments (up, flat), and the gap takes 2 segments (down, flat).
-    int segments = num_teeth * 4;
-    float tooth_depth = 0.18f; // Constant depth slightly reduced to prevent corner clipping
-    float outer_radius = radius + tooth_depth * 0.5f;
-    float root_radius  = radius - tooth_depth * 0.5f;
-    float depth = 0.5f; // Gear thickness
+    float depth = 0.5f;
 
-    std::vector<glm::vec3> face_vertices_front;
-    std::vector<glm::vec3> face_vertices_back;
-    for (int i = 0; i < segments; ++i) {
-        float angle = (float)i / segments * 2.0f * 3.14159265359f;
+    // We generate the gear outline as a series of 2D points, then extrude it.
+    std::vector<glm::vec2> profile_points;
+    
+    float pitch_angle = (2.0f * 3.14159265359f) / num_teeth;
+    float alpha = glm::radians(pressure_angle);
+    float inv_alpha = std::tan(alpha) - alpha;
+    
+    float tooth_thickness_angle = pitch_angle / 2.0f;
+    float base_angle_offset = (tooth_thickness_angle / 2.0f) + inv_alpha;
+    
+    // Max t parameter where involute reaches outer_radius
+    float t_max = 0.0f;
+    if (outer_radius > base_radius) {
+        t_max = std::sqrt((outer_radius / base_radius) * (outer_radius / base_radius) - 1.0f);
+    }
+    
+    int involute_segments = 20; 
+
+    for (int i = 0; i < num_teeth; ++i) {
+        float center_angle = i * pitch_angle;
         
-        // Determine radius based on whether we are at a tooth or gap
-        int phase = i % 4; 
-        float r = (phase == 1 || phase == 2) ? outer_radius : root_radius;
+        // 1. Root circle point (start of tooth)
+        float start_angle = center_angle - pitch_angle / 2.0f;
+        profile_points.push_back(glm::vec2(root_radius * std::cos(start_angle), root_radius * std::sin(start_angle)));
         
-        face_vertices_front.push_back(glm::vec3(r * cos(angle), r * sin(angle), depth));
-        face_vertices_back.push_back(glm::vec3(r * cos(angle), r * sin(angle), -depth));
+        // 2. Involute curve (up)
+        for(int j = 0; j <= involute_segments; ++j) {
+            float t = (float)j / involute_segments * t_max;
+            glm::vec2 p = involute::CalculatePoint(base_radius, t);
+            float rot = center_angle - base_angle_offset;
+            float px = p.x * std::cos(rot) - p.y * std::sin(rot);
+            float py = p.x * std::sin(rot) + p.y * std::cos(rot);
+            
+            float r = std::sqrt(px*px + py*py);
+            if(r >= root_radius) {
+                profile_points.push_back(glm::vec2(px, py));
+            } else if (j == 0) {
+                profile_points.push_back(glm::vec2(root_radius * std::cos(rot), root_radius * std::sin(rot)));
+            }
+        }
+        
+        // 3. Involute curve (down)
+        for(int j = involute_segments; j >= 0; --j) {
+            float t = (float)j / involute_segments * t_max;
+            glm::vec2 p = involute::CalculatePoint(base_radius, t);
+            float rot = center_angle + base_angle_offset;
+            float px = p.x * std::cos(rot) - (-p.y) * std::sin(rot);
+            float py = p.x * std::sin(rot) + (-p.y) * std::cos(rot);
+            
+            float r = std::sqrt(px*px + py*py);
+            if(r >= root_radius) {
+                profile_points.push_back(glm::vec2(px, py));
+            } else if (j == 0) {
+                profile_points.push_back(glm::vec2(root_radius * std::cos(rot), root_radius * std::sin(rot)));
+            }
+        }
+        
+        // 4. Root circle point (end of tooth)
+        float end_angle = center_angle + pitch_angle / 2.0f;
+        profile_points.push_back(glm::vec2(root_radius * std::cos(end_angle), root_radius * std::sin(end_angle)));
     }
 
-    // 1. Generate front face (simple fan from center)
+    int points_count = (int)profile_points.size();
+
+    // 1. Front face
     glm::vec3 center_front(0.0f, 0.0f, depth);
     unsigned int center_front_idx = static_cast<unsigned int>(mesh.vertices.size());
     mesh.vertices.push_back({center_front, glm::vec3(0.0f, 0.0f, 1.0f)});
-    
-    for (int i = 0; i < segments; ++i) {
-        mesh.vertices.push_back({face_vertices_front[i], glm::vec3(0.0f, 0.0f, 1.0f)});
+    for (int i = 0; i < points_count; ++i) {
+        mesh.vertices.push_back({glm::vec3(profile_points[i].x, profile_points[i].y, depth), glm::vec3(0.0f, 0.0f, 1.0f)});
     }
-    
-    for (int i = 0; i < segments; ++i) {
+    for (int i = 0; i < points_count; ++i) {
         mesh.indices.push_back(center_front_idx);
         mesh.indices.push_back(center_front_idx + 1 + i);
-        mesh.indices.push_back(center_front_idx + 1 + ((i + 1) % segments));
+        mesh.indices.push_back(center_front_idx + 1 + ((i + 1) % points_count));
     }
-    
-    // 2. Generate back face (winding reversed to face outward)
+
+    // 2. Back face
     glm::vec3 center_back(0.0f, 0.0f, -depth);
     unsigned int center_back_idx = static_cast<unsigned int>(mesh.vertices.size());
     mesh.vertices.push_back({center_back, glm::vec3(0.0f, 0.0f, -1.0f)});
-    
-    for (int i = 0; i < segments; ++i) {
-        mesh.vertices.push_back({face_vertices_back[i], glm::vec3(0.0f, 0.0f, -1.0f)});
+    for (int i = 0; i < points_count; ++i) {
+        mesh.vertices.push_back({glm::vec3(profile_points[i].x, profile_points[i].y, -depth), glm::vec3(0.0f, 0.0f, -1.0f)});
     }
-    
-    for (int i = 0; i < segments; ++i) {
+    for (int i = 0; i < points_count; ++i) {
         mesh.indices.push_back(center_back_idx);
-        mesh.indices.push_back(center_back_idx + 1 + ((i + 1) % segments));
+        mesh.indices.push_back(center_back_idx + 1 + ((i + 1) % points_count));
         mesh.indices.push_back(center_back_idx + 1 + i);
     }
-    
-    // 3. Generate rim (sides) with flat shading normals
-    for (int i = 0; i < segments; ++i) {
-        int next_i = (i + 1) % segments;
-        glm::vec3 v0 = face_vertices_front[i];
-        glm::vec3 v1 = face_vertices_back[i];
-        glm::vec3 v2 = face_vertices_front[next_i];
-        glm::vec3 v3 = face_vertices_back[next_i];
+
+    // 3. Rim
+    for (int i = 0; i < points_count; ++i) {
+        int next_i = (i + 1) % points_count;
+        glm::vec3 v0(profile_points[i].x, profile_points[i].y, depth);
+        glm::vec3 v1(profile_points[i].x, profile_points[i].y, -depth);
+        glm::vec3 v2(profile_points[next_i].x, profile_points[next_i].y, depth);
+        glm::vec3 v3(profile_points[next_i].x, profile_points[next_i].y, -depth);
         
         glm::vec3 edge1 = v2 - v0;
         glm::vec3 edge2 = v1 - v0;
@@ -82,12 +137,10 @@ MeshData GearMeshGenerator::Generate(float radius, int num_teeth) {
         mesh.vertices.push_back({v2, normal});
         mesh.vertices.push_back({v3, normal});
         
-        // Triangle 1: v0, v1, v2
         mesh.indices.push_back(start_idx);
         mesh.indices.push_back(start_idx + 1);
         mesh.indices.push_back(start_idx + 2);
         
-        // Triangle 2: v1, v3, v2
         mesh.indices.push_back(start_idx + 1);
         mesh.indices.push_back(start_idx + 3);
         mesh.indices.push_back(start_idx + 2);

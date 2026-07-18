@@ -92,6 +92,8 @@ FetchContent_MakeAvailable(googletest)
 add_executable(GearEngineTests
     tests/GearMeshGenerator_test.cpp
     tests/WorkspaceEnvironment_test.cpp
+    tests/PhysicsUtils_test.cpp
+    tests/GearEngine_test.cpp
     src/GearMeshGenerator.cpp
 )
 

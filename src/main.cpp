@@ -13,6 +13,7 @@
 #include "../include/EditorCamera.hpp"
 #include "../include/DebugRenderer.hpp"
 #include "../include/WorkspaceEnvironment.hpp"
+#include "../include/PhysicsUtils.hpp"
 
 // Standard main signature
 int main(int argc, char** argv) {
@@ -169,8 +170,25 @@ int main(int argc, char** argv) {
             }
         }
         
+        float preview_phi = 0.0f;
+        if (grabbed_gear != -1) {
+            preview_phi = glm::eulerAngles(engine_state.GetBodies().rotations[grabbed_gear]).z;
+        }
+
+        if (is_snapped) {
+            float r_a = bodies.radii[snap_target];
+            float r_b = current_radius;
+            glm::vec3 pos_a = bodies.positions[snap_target];
+            glm::vec3 pos_b = placement_pos;
+            float phi_a = glm::eulerAngles(bodies.rotations[snap_target]).z;
+            preview_phi = gear_engine::physics_utils::CalculateMeshRotationOffset(r_a, r_b, pos_a, pos_b, phi_a);
+        }
+        
         if (grabbed_gear != -1) {
             engine_state.GetBodies().positions[grabbed_gear] = placement_pos;
+            if (is_snapped) {
+                engine_state.GetBodies().rotations[grabbed_gear] = glm::quat(glm::vec3(0.0f, 0.0f, preview_phi));
+            }
         }
 
         if (!io.WantCaptureMouse) {
@@ -185,6 +203,13 @@ int main(int argc, char** argv) {
                         uint32_t i = new_handle.index;
                         engine_state.GetBodies().positions[i] = placement_pos;
                         engine_state.GetBodies().radii[i] = next_radius;
+                        if (is_snapped) {
+                            engine_state.GetBodies().pressure_angles[i] = engine_state.GetBodies().pressure_angles[snap_target];
+                            engine_state.GetBodies().clearances[i] = engine_state.GetBodies().clearances[snap_target];
+                        } else {
+                            engine_state.GetBodies().pressure_angles[i] = 20.0f;
+                            engine_state.GetBodies().clearances[i] = 0.1f;
+                        }
                         engine_state.GetBodies().linear_velocities[i] = glm::vec3(0.0f);
                         engine_state.GetBodies().angular_velocities[i] = glm::vec3(0.0f);
                         engine_state.GetBodies().rotations[i] = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
@@ -203,20 +228,7 @@ int main(int argc, char** argv) {
                             // so that w_A + ratio*w_B = 0 enforces equal tangential velocity
                             gc.ratio = bodies.radii[snap_target] / next_radius;
                             
-                            // Visually align teeth
-                            float r_a = bodies.radii[snap_target];
-                            float r_b = next_radius;
-                            glm::vec3 pos_a = bodies.positions[snap_target];
-                            glm::vec3 pos_b = placement_pos;
-                            
-                            float theta_ab = atan2(pos_b.y - pos_a.y, pos_b.x - pos_a.x);
-                            glm::vec3 euler_a = glm::eulerAngles(bodies.rotations[snap_target]);
-                            float phi_a = euler_a.z;
-                            float pi = 3.14159265359f;
-                            
-                            // Phase alignment formula
-                            float phi_b = theta_ab + pi + (r_a / r_b) * (theta_ab - phi_a) - (pi / (4.0f * r_b));
-                            engine_state.GetBodies().rotations[i] = glm::quat(glm::vec3(0.0f, 0.0f, phi_b));
+                            engine_state.GetBodies().rotations[i] = glm::quat(glm::vec3(0.0f, 0.0f, preview_phi));
                             
                             constraint_arrays.gears.push_back(gc);
                         }
@@ -311,6 +323,10 @@ int main(int argc, char** argv) {
                     constraint_arrays.motors.push_back(mc);
                 }
             }
+            ImGui::Separator();
+            ImGui::Text("Involute Properties (Gear %d)", selected_motor_gear);
+            ImGui::SliderFloat("Pressure Angle", &engine_state.GetBodies().pressure_angles[selected_motor_gear], 10.0f, 40.0f);
+            ImGui::SliderFloat("Clearance", &engine_state.GetBodies().clearances[selected_motor_gear], 0.0f, 0.5f);
         } else {
             ImGui::TextDisabled("Click a gear to access motor controls.");
         }
@@ -344,7 +360,9 @@ int main(int argc, char** argv) {
         // 4. Draw transparent preview gear
         if (grabbed_gear == -1 && !io.WantCaptureMouse && hovered_gear == -1) {
             if (env.IsWireframeEnabled()) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            renderer.DrawPreviewGear(placement_pos, next_radius, is_snapped, camera, display_w, display_h);
+            float p_angle = is_snapped ? engine_state.GetBodies().pressure_angles[snap_target] : 20.0f;
+            float p_clearance = is_snapped ? engine_state.GetBodies().clearances[snap_target] : 0.1f;
+            renderer.DrawPreviewGear(placement_pos, next_radius, preview_phi, p_angle, p_clearance, is_snapped, camera, display_w, display_h);
             if (env.IsWireframeEnabled()) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
         
