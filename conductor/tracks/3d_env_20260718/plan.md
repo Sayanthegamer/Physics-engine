@@ -13,11 +13,11 @@
 - [x] Task: Implement rendering logic for a light infinite grid on the XZ plane
 - [x] Task: Implement rendering logic for a finite solid floor plane
 - [x] Task: Integrate grid and floor rendering into the main render pass
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: ImGui 'View' Settings Integration
-- [ ] Task: Write tests for ImGui view state management (toggles for grid, floor, wireframe)
-- [ ] Task: Create a new ImGui "View" settings window in `EditorCamera` or a dedicated UI class
-- [ ] Task: Wire the UI toggles to the respective rendering passes (Grid, Floor, Wireframe mode)
-- [ ] Task: Validate that UI captures mouse/keyboard correctly without interacting with the scene
+- [x] Task: Write tests for ImGui view state management (toggles for grid, floor, wireframe)
+- [x] Task: Create a new ImGui "View" settings window in `EditorCamera` or a dedicated UI class
+- [x] Task: Wire the UI toggles to the respective rendering passes (Grid, Floor, Wireframe mode)
+- [x] Task: Validate that UI captures mouse/keyboard correctly without interacting with the scene
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
