@@ -264,7 +264,7 @@ int main(int argc, char** argv) {
             if (ImGui::Button("Apply Motor")) {
                 bool found = false;
                 for (auto& mc : constraint_arrays.motors) {
-                    if (mc.body.index == selected_motor_gear) {
+                    if (mc.body.index == (uint32_t)selected_motor_gear) {
                         mc.target_speed = motor_speed;
                         found = true;
                         break;
@@ -272,7 +272,7 @@ int main(int argc, char** argv) {
                 }
                 if (!found) {
                     GearEngine::MotorConstraint mc;
-                    mc.body = {selected_motor_gear, engine_state.GetGeneration(selected_motor_gear)};
+                    mc.body = {(uint32_t)selected_motor_gear, engine_state.GetGeneration(selected_motor_gear)};
                     mc.target_speed = motor_speed;
                     constraint_arrays.motors.push_back(mc);
                 }

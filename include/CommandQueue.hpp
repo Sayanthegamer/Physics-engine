@@ -4,6 +4,7 @@
 #include "ConstraintSolver.hpp"
 #include <vector>
 #include <variant>
+#include <algorithm>
 
 namespace GearEngine {
 
